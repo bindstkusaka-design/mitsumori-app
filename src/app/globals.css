@@ -1,0 +1,46 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@300;400;500;600;700&family=Noto+Serif+JP:wght@400;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  background: #f5f4f0;
+}
+
+body {
+  font-family: 'Noto Sans JP', sans-serif;
+  background: #f5f4f0;
+  color: #1a1814;
+  min-height: 100svh;
+}
+
+/* スクロールバー細め */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #ddd9d0; border-radius: 99px; }
+
+/* フォームのデフォルト appearance 解除 */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] { -moz-appearance: textfield; }
+
+/* safe-area padding for bottom tab */
+.pb-tab { padding-bottom: calc(64px + var(--safe-bottom)); }
+
+/* PDF 印刷用 */
+@media print {
+  .no-print { display: none !important; }
+  body { background: white !important; }
+}
