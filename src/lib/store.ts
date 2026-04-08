@@ -2,9 +2,9 @@ import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
 import type {
   Job, JobItem, Document, DocumentItem,
-  Product, Settings, TaxRate, Honorific,
+  Product, Settings, TaxRate, Honorific, DocumentType,
 } from '@/types'
-import { genId, todayISO, expireISO, autoQuoteNo } from '@/lib/utils'
+import { genId, todayISO, autoDocNo } from '@/lib/utils'
 import { loadStorage, saveStorage } from '@/lib/storage'
 import { savePdfAsset } from '@/lib/pdf-asset-service'
 
@@ -27,6 +27,11 @@ const DEFAULT_SETTINGS: Settings = {
     email: '',
     bankInfo: '',
     invoiceNumber: '',
+    bankName: 'ゆうちょ銀行',
+    bankBranch: '628',
+    bankAccountType: '普通預金',
+    bankAccountNumber: '1798772',
+    bankAccountHolder: 'クサカ\u3000トモアキ',
   },
   titleTemplates: [
     'Webサイト制作のご提案',
@@ -51,45 +56,35 @@ const DEFAULT_PERSISTED: PersistedState = {
 
 // ── Store interface ────────────────────────────────────────────
 interface AppStore extends PersistedState {
-  // ── Jobs ──
   createJob(params: Pick<Job, 'name' | 'client' | 'contactPerson'>): Job
   updateJob(id: string, params: Partial<Pick<Job, 'name' | 'client' | 'contactPerson'>>): void
   deleteJob(id: string): void
   getJob(id: string): Job | undefined
   getJobItems(jobId: string): JobItem[]
-
-  // ── Job Items ──
   addJobItem(jobId: string, params: Omit<JobItem, 'id' | 'jobId' | 'sortOrder'>): JobItem
   updateJobItem(id: string, params: Partial<Omit<JobItem, 'id' | 'jobId'>>): void
   removeJobItem(id: string): void
-
-  // ── Documents ──
   createDocument(jobId: string, params: {
+    docType: DocumentType
     quoteNumber: string
     subject: string
     expireDate: string
     taxRate: TaxRate
     honorific: Honorific
     note: string
+    taxiRemark?: string
+    sourceItems?: Omit<DocumentItem, 'id' | 'documentId'>[]
   }): Document
   finalizeDocument(id: string): void
   deleteDocument(id: string): void
   getDocument(id: string): Document | undefined
   getDocumentsByJob(jobId: string): Document[]
   getDocumentItems(documentId: string): DocumentItem[]
-
-  // ── PDF ──
   savePdf(documentId: string): Promise<{ ok: boolean; error?: string }>
-
-  // ── Products ──
   addProduct(params: Omit<Product, 'id' | 'createdAt'>): Product
   updateProduct(id: string, params: Partial<Omit<Product, 'id' | 'createdAt'>>): void
   deleteProduct(id: string): void
-
-  // ── Settings ──
   updateSettings(settings: Partial<Settings>): void
-
-  // ── Persist ──
   _persist(): void
   _hydrate(): void
 }
@@ -99,13 +94,9 @@ export const useStore = create<AppStore>()(
   subscribeWithSelector((set, get) => ({
     ...loadStorage<PersistedState>(DEFAULT_PERSISTED),
 
-    // ── Jobs ─────────────────────────────────────────────────
     createJob({ name, client, contactPerson }) {
       const job: Job = {
-        id: genId(),
-        name,
-        client,
-        contactPerson,
+        id: genId(), name, client, contactPerson,
         status: 'active',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
@@ -125,22 +116,17 @@ export const useStore = create<AppStore>()(
     },
 
     deleteJob(id) {
-
       const docIds = get().documents.filter(d => d.jobId === id).map(d => d.id)
       set(s => ({
         jobs: s.jobs.filter(j => j.id !== id),
         jobItems: s.jobItems.filter(i => i.jobId !== id),
         documents: s.documents.filter(d => d.jobId !== id),
-        documentItems: s.documentItems.filter(
-          di => !docIds.includes(di.documentId),
-        ),
+        documentItems: s.documentItems.filter(di => !docIds.includes(di.documentId)),
       }))
       get()._persist()
     },
 
-    getJob(id) {
-      return get().jobs.find(j => j.id === id)
-    },
+    getJob(id) { return get().jobs.find(j => j.id === id) },
 
     getJobItems(jobId) {
       return get().jobItems
@@ -148,24 +134,16 @@ export const useStore = create<AppStore>()(
         .sort((a, b) => a.sortOrder - b.sortOrder)
     },
 
-    // ── Job Items ─────────────────────────────────────────────
     addJobItem(jobId, params) {
       const existing = get().jobItems.filter(i => i.jobId === jobId)
-      const item: JobItem = {
-        id: genId(),
-        jobId,
-        sortOrder: existing.length,
-        ...params,
-      }
+      const item: JobItem = { id: genId(), jobId, sortOrder: existing.length, ...params }
       set(s => ({ jobItems: [...s.jobItems, item] }))
       get()._persist()
       return item
     },
 
     updateJobItem(id, params) {
-      set(s => ({
-        jobItems: s.jobItems.map(i => (i.id === id ? { ...i, ...params } : i)),
-      }))
+      set(s => ({ jobItems: s.jobItems.map(i => (i.id === id ? { ...i, ...params } : i)) }))
       get()._persist()
     },
 
@@ -174,30 +152,26 @@ export const useStore = create<AppStore>()(
       get()._persist()
     },
 
-    // ── Documents ─────────────────────────────────────────────
     createDocument(jobId, params) {
-      const jobItems = get().getJobItems(jobId)
+      const { docType, sourceItems, taxiRemark, ...rest } = params
+      const baseItems = sourceItems ?? get().getJobItems(jobId).map((ji, idx) => ({
+        sortOrder: idx, name: ji.name, price: ji.price,
+        qty: ji.qty, unit: ji.unit, note: ji.note,
+      }))
       const doc: Document = {
-        id: genId(),
-        jobId,
+        id: genId(), jobId, docType,
         status: 'draft',
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        pdfPath: null,
-        pdfSavedAt: null,
+        pdfPath: null, pdfSavedAt: null,
         issueDate: todayISO(),
-        ...params,
+        taxiRemark: taxiRemark ?? '',
+        ...rest,
       }
-      // スナップショットとして document_items に複製
-      const docItems: DocumentItem[] = jobItems.map((ji, idx) => ({
-        id: genId(),
-        documentId: doc.id,
-        sortOrder: idx,
-        name: ji.name,
-        price: ji.price,
-        qty: ji.qty,
-        unit: ji.unit,
-        note: ji.note,
+      const docItems: DocumentItem[] = baseItems.map((item, idx) => ({
+        id: genId(), documentId: doc.id, sortOrder: idx,
+        name: item.name, price: item.price, qty: item.qty,
+        unit: item.unit, note: item.note,
       }))
       set(s => ({
         documents: [...s.documents, doc],
@@ -210,9 +184,7 @@ export const useStore = create<AppStore>()(
     finalizeDocument(id) {
       set(s => ({
         documents: s.documents.map(d =>
-          d.id === id
-            ? { ...d, status: 'finalized', updatedAt: new Date().toISOString() }
-            : d,
+          d.id === id ? { ...d, status: 'finalized', updatedAt: new Date().toISOString() } : d,
         ),
       }))
       get()._persist()
@@ -226,21 +198,18 @@ export const useStore = create<AppStore>()(
       get()._persist()
     },
 
-    getDocument(id) {
-      return get().documents.find(d => d.id === id)
-    },
+    getDocument(id) { return get().documents.find(d => d.id === id) },
 
     getDocumentsByJob(jobId) {
       return get().documents.filter(d => d.jobId === jobId)
     },
 
     getDocumentItems(documentId) {
-      return get()
-        .documentItems.filter(di => di.documentId === documentId)
+      return get().documentItems
+        .filter(di => di.documentId === documentId)
         .sort((a, b) => a.sortOrder - b.sortOrder)
     },
 
-    // ── PDF ───────────────────────────────────────────────────
     async savePdf(documentId) {
       const result = await savePdfAsset(documentId)
       if (!result.ok) return { ok: false, error: result.error }
@@ -255,22 +224,15 @@ export const useStore = create<AppStore>()(
       return { ok: true }
     },
 
-    // ── Products ──────────────────────────────────────────────
     addProduct(params) {
-      const product: Product = {
-        id: genId(),
-        createdAt: new Date().toISOString(),
-        ...params,
-      }
+      const product: Product = { id: genId(), createdAt: new Date().toISOString(), ...params }
       set(s => ({ products: [...s.products, product] }))
       get()._persist()
       return product
     },
 
     updateProduct(id, params) {
-      set(s => ({
-        products: s.products.map(p => (p.id === id ? { ...p, ...params } : p)),
-      }))
+      set(s => ({ products: s.products.map(p => (p.id === id ? { ...p, ...params } : p)) }))
       get()._persist()
     },
 
@@ -279,13 +241,11 @@ export const useStore = create<AppStore>()(
       get()._persist()
     },
 
-    // ── Settings ──────────────────────────────────────────────
     updateSettings(settings) {
       set(s => ({ settings: { ...s.settings, ...settings } }))
       get()._persist()
     },
 
-    // ── Persistence ───────────────────────────────────────────
     _persist() {
       const { jobs, jobItems, documents, documentItems, products, settings } = get()
       saveStorage({ jobs, jobItems, documents, documentItems, products, settings })
@@ -298,8 +258,22 @@ export const useStore = create<AppStore>()(
   })),
 )
 
-// 自動見積番号生成用ヘルパー（ストア外から使う）
-export function getNextQuoteNo(): string {
-  return autoQuoteNo(useStore.getState().documents.length)
+// ── 発行番号生成ヘルパー ───────────────────────────────────────
+export function getNextDocNo(type: DocumentType): string {
+  const docs = useStore.getState().documents
+  const count = docs.filter(d => (d.docType ?? 'quote') === type).length
+  return autoDocNo(type, count)
 }
 
+/** 後方互換 */
+export function getNextQuoteNo(): string {
+  return getNextDocNo('quote')
+}
+
+/** docType に応じた詳細ページパスを返す */
+export function docDetailPath(doc: { id: string; docType?: DocumentType }): string {
+  const t = doc.docType ?? 'quote'
+  if (t === 'invoice') return `/invoices/${doc.id}`
+  if (t === 'receipt') return `/receipts/${doc.id}`
+  return `/quotes/${doc.id}`
+}

@@ -3,12 +3,13 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, Trash2 } from 'lucide-react'
-import { useStore } from '@/lib/store'
+import { Plus, Trash2, FileEdit } from 'lucide-react'
+import { useStore, docDetailPath } from '@/lib/store'
 import { fmtDate, fmtMoney, calcTotals } from '@/lib/utils'
+import type { DocumentType } from '@/types'
 import {
-  Button, Badge, Card, Modal, FormGroup, Input, Select,
-  SectionHeader, EmptyState, AmountSummary, ToastProvider, showToast, Divider,
+  Button, Modal, FormGroup, Input,
+  ToastProvider, showToast,
 } from '@/components/ui'
 import TopNav from '@/components/layout/TopNav'
 import BackButton from '@/components/layout/BackButton'
@@ -16,6 +17,13 @@ import BottomTab from '@/components/layout/BottomTab'
 import type { JobItem } from '@/types'
 
 interface Props { jobId: string }
+
+// 書類スタンプ定義
+const STAMP_CONFIG: { type: DocumentType; label: string; color: string }[] = [
+  { type: 'quote',   label: '見', color: '#1a6bb5' },
+  { type: 'invoice', label: '請', color: '#c0392b' },
+  { type: 'receipt', label: '領', color: '#7b3fa0' },
+]
 
 export default function JobDetailClient({ jobId }: Props) {
   const router = useRouter()
@@ -28,8 +36,8 @@ export default function JobDetailClient({ jobId }: Props) {
   const items = getJobItems(jobId)
   const docs = getDocumentsByJob(jobId)
 
-  // ── Add item modal ──
   const [addOpen, setAddOpen] = useState(false)
+  const [actionOpen, setActionOpen] = useState(false)
   const [itemName, setItemName] = useState('')
   const [itemPrice, setItemPrice] = useState('')
   const [itemQty, setItemQty] = useState('1')
@@ -49,10 +57,7 @@ export default function JobDetailClient({ jobId }: Props) {
   }
 
   function applySuggestion(p: typeof products[number]) {
-    setItemName(p.name)
-    setItemPrice(String(p.price))
-    setItemUnit(p.unit || '式')
-    setSuggestions([])
+    setItemName(p.name); setItemPrice(String(p.price)); setItemUnit(p.unit || '式'); setSuggestions([])
   }
 
   function handleAddItem() {
@@ -78,9 +83,9 @@ export default function JobDetailClient({ jobId }: Props) {
   if (!job) {
     return (
       <>
-        <TopNav left={<BackButton href="/" />} title={<span className="text-sm font-semibold">案件が見つかりません</span>} />
-        <main className="max-w-xl mx-auto px-4 pt-6 pb-tab">
-          <EmptyState icon="🔍" title="案件が見つかりません" description="URLを確認してください" />
+        <TopNav left={<BackButton href="/" />} />
+        <main className="max-w-xl mx-auto px-4 pt-6 pb-tab text-center text-ink-muted">
+          案件が見つかりません
         </main>
         <BottomTab />
       </>
@@ -89,125 +94,266 @@ export default function JobDetailClient({ jobId }: Props) {
 
   const { subtotal, tax, total } = calcTotals(items, 0.1)
 
+  // 書類種別ごとに最新ドキュメントを取得
+  const docByType: Partial<Record<DocumentType, (typeof docs)[0]>> = {}
+  for (const doc of docs) {
+    const t: DocumentType = doc.docType ?? 'quote'
+    if (!docByType[t]) docByType[t] = doc
+  }
+
   return (
     <>
       <TopNav
         left={<BackButton href="/" />}
-        title={<span className="text-sm font-semibold truncate max-w-[180px]">{job.name}</span>}
+        title={<span className="text-sm font-semibold">仕事詳細</span>}
       />
-      <main className="max-w-xl mx-auto px-4 pt-4 pb-tab">
+      <main className="max-w-xl mx-auto pb-32" style={{ backgroundColor: '#f5f5f5', minHeight: '100vh' }}>
 
-        {/* 案件ヘッダー */}
-        <Card accent className="p-4 mb-5">
-          <h1 className="text-lg font-bold text-ink mb-1">{job.name}</h1>
-          {job.client && (
-            <p className="text-sm text-ink-muted">
-              👤 {job.client}{job.contactPerson ? ` / ${job.contactPerson}` : ''}
-            </p>
-          )}
-          <p className="text-xs text-ink-muted mt-1">作成: {fmtDate(job.createdAt)}</p>
-        </Card>
+        {/* 案件ヘッダーカード */}
+        <div style={{ backgroundColor: '#fff', padding: '16px 16px 12px', marginBottom: 0 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <h1 style={{ fontSize: 16, fontWeight: 700, color: '#1a6bb5', marginBottom: 2 }}>{job.name}</h1>
+              {job.client && (
+                <p style={{ fontSize: 13, color: '#444', marginBottom: 2 }}>
+                  {job.client}{job.contactPerson ? `　${job.contactPerson}` : ''}
+                </p>
+              )}
+              <p style={{ fontSize: 12, color: '#888' }}>更新：{fmtDate(job.updatedAt)}</p>
+            </div>
 
-        {/* 明細 */}
-        <SectionHeader
-          title="明細"
-          sub={`${items.length}件`}
-          action={
-            <Button variant="primary" size="sm" onClick={openAdd}>
-              <Plus size={14} /> 追加
-            </Button>
-          }
-        />
-
-        {items.length === 0 ? (
-          <Card className="p-5 text-center text-ink-muted text-sm mb-5">
-            明細がありません。追加してください。
-          </Card>
-        ) : (
-          <Card className="mb-5 overflow-hidden p-0">
-            <div className="divide-y divide-border">
-              {items.map((item, i) => (
-                <div key={item.id} className="flex items-start gap-3 px-4 py-3">
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-sm text-ink leading-snug">{item.name}</p>
-                    {item.note && <p className="text-xs text-ink-muted mt-0.5">{item.note}</p>}
-                    <p className="text-xs text-ink-muted mt-0.5">
-                      {fmtMoney(item.price)} / {item.unit} × {item.qty}
-                    </p>
+            {/* 書類スタンプグリッド */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 40px)', gap: 4, flexShrink: 0, marginLeft: 12 }}>
+              {STAMP_CONFIG.map(({ type, label, color }) => {
+                const existingDoc = docByType[type]
+                return existingDoc ? (
+                  <Link key={type} href={docDetailPath(existingDoc)}>
+                    <div style={{
+                      width: 40, height: 40, borderRadius: 6,
+                      border: `2px solid ${color}`,
+                      display: 'flex', alignItems: 'center', justifyContent: 'center',
+                      fontSize: 14, fontWeight: 700, color,
+                      backgroundColor: color + '15',
+                    }}>
+                      {label}
+                    </div>
+                  </Link>
+                ) : (
+                  <div key={type} style={{
+                    width: 40, height: 40, borderRadius: 6,
+                    border: '1.5px solid #ccc',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center',
+                    fontSize: 14, fontWeight: 700, color: '#ccc',
+                    backgroundColor: '#f9f9f9',
+                  }}>
+                    {label}
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="font-semibold text-sm">{fmtMoney(item.price * item.qty)}</p>
-                    <button
-                      onClick={() => { removeJobItem(item.id); showToast('削除しました') }}
-                      className="mt-1 text-red-400 hover:text-red-600 transition-colors"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
+                )
+              })}
+              {/* 空のスロット（2x2 グリッド埋め） */}
+              <div style={{
+                width: 40, height: 40, borderRadius: 6,
+                border: '1.5px solid #ccc',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                fontSize: 11, fontWeight: 700, color: '#ccc',
+                backgroundColor: '#f9f9f9',
+              }}>
+                納
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* 合計バー */}
+        <div style={{
+          backgroundColor: '#2bb8c8',
+          padding: '12px 16px',
+          display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        }}>
+          <span style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>合計</span>
+          <span style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>
+            {total.toLocaleString('ja-JP')}円
+          </span>
+        </div>
+
+        {/* 明細リスト */}
+        <div style={{ backgroundColor: '#fff', marginBottom: 8 }}>
+          {items.length === 0 ? (
+            <div style={{ padding: '24px 16px', textAlign: 'center', color: '#999', fontSize: 14 }}>
+              明細がありません
+            </div>
+          ) : (
+            items.map((item) => (
+              <div
+                key={item.id}
+                style={{
+                  padding: '12px 16px',
+                  borderBottom: '1px solid #eee',
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                }}
+              >
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: '#111', marginBottom: 2 }}>{item.name}</p>
+                  {item.note && <p style={{ fontSize: 12, color: '#888', marginBottom: 2 }}>{item.note}</p>}
+                  <p style={{ fontSize: 13, color: '#555' }}>
+                    {item.price.toLocaleString('ja-JP')}円 × {item.qty}{item.unit}
+                  </p>
                 </div>
-              ))}
-            </div>
-            <div className="px-4 pb-3">
-              <AmountSummary subtotal={subtotal} tax={tax} total={total} taxRate={0.1} />
-            </div>
-          </Card>
-        )}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, marginLeft: 12 }}>
+                  <p style={{ fontSize: 15, fontWeight: 600, color: '#111' }}>
+                    {(item.price * item.qty).toLocaleString('ja-JP')}円
+                  </p>
+                  <button
+                    onClick={() => { removeJobItem(item.id); showToast('削除しました') }}
+                    style={{ color: '#e57373', padding: 4, background: 'none', border: 'none', cursor: 'pointer' }}
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </div>
+            ))
+          )}
+        </div>
 
-        {/* 見積書 */}
-        <SectionHeader
-          title="見積書"
-          sub={`${docs.length}件`}
-          action={
-            <Link href={`/jobs/${jobId}/quotes/new`}>
-              <Button variant="primary" size="sm">
-                <Plus size={14} /> 作成
-              </Button>
-            </Link>
-          }
-        />
+        {/* 明細追加ボタン */}
+        <div style={{ padding: '0 16px 16px' }}>
+          <button
+            onClick={openAdd}
+            style={{
+              width: '100%', padding: '12px', borderRadius: 8,
+              border: '2px dashed #2bb8c8', backgroundColor: 'transparent',
+              color: '#2bb8c8', fontSize: 14, fontWeight: 600,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              cursor: 'pointer',
+            }}
+          >
+            <Plus size={16} /> 明細を追加
+          </button>
+        </div>
 
-        {docs.length === 0 ? (
-          <Card className="p-5 text-center text-ink-muted text-sm mb-5">
-            見積書がありません。
-          </Card>
-        ) : (
-          <div className="space-y-3 mb-5">
+        {/* 書類一覧 */}
+        {docs.length > 0 && (
+          <div style={{ backgroundColor: '#fff', marginBottom: 8 }}>
+            <div style={{ padding: '10px 16px 6px', borderBottom: '1px solid #eee' }}>
+              <p style={{ fontSize: 12, fontWeight: 600, color: '#888' }}>作成済み書類</p>
+            </div>
             {[...docs].reverse().map(doc => {
-              const { total: docTotal } = calcTotals(
-                getDocumentItems(doc.id),
-                doc.taxRate,
-              )
+              const { total: docTotal } = calcTotals(getDocumentItems(doc.id), doc.taxRate)
+              const t: DocumentType = doc.docType ?? 'quote'
+              const typeLabel: Record<DocumentType, string> = { quote: '見積書', invoice: '請求書', receipt: '領収書' }
+              const typeColor: Record<DocumentType, string> = { quote: '#1a6bb5', invoice: '#c0392b', receipt: '#7b3fa0' }
               return (
-                <Link key={doc.id} href={`/quotes/${doc.id}`}>
-                  <Card clickable className="p-4">
-                    <div className="flex items-start justify-between gap-2 mb-1.5">
-                      <div>
-                        <span className="font-semibold text-sm">No. {doc.quoteNumber || '-'}</span>
-                        {doc.pdfPath && (
-                          <Badge variant="pdf" className="ml-2">📄 PDF</Badge>
-                        )}
-                      </div>
-                      <Badge variant={doc.status === 'finalized' ? 'final' : 'draft'}>
+                <Link key={doc.id} href={docDetailPath(doc)}>
+                  <div style={{
+                    padding: '10px 16px',
+                    borderBottom: '1px solid #eee',
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{
+                        fontSize: 11, fontWeight: 700,
+                        padding: '2px 7px', borderRadius: 4,
+                        backgroundColor: typeColor[t] + '18',
+                        color: typeColor[t], border: `1px solid ${typeColor[t]}40`,
+                      }}>
+                        {typeLabel[t]}
+                      </span>
+                      <span style={{ fontSize: 13, color: '#333' }}>No. {doc.quoteNumber || '-'}</span>
+                    </div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                      <span style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>
+                        {docTotal.toLocaleString('ja-JP')}円
+                      </span>
+                      <span style={{
+                        fontSize: 11, padding: '2px 6px', borderRadius: 4,
+                        backgroundColor: doc.status === 'finalized' ? '#e8f5e9' : '#fff8e1',
+                        color: doc.status === 'finalized' ? '#2e7d32' : '#f57f17',
+                      }}>
                         {doc.status === 'finalized' ? '確定済' : '下書き'}
-                      </Badge>
+                      </span>
                     </div>
-                    <p className="text-xs text-ink-muted mb-1.5">{doc.subject || '件名未設定'}</p>
-                    <div className="flex justify-between items-center">
-                      <span className="text-xs text-ink-muted">{fmtDate(doc.createdAt)}</span>
-                      <span className="font-bold text-accent">{fmtMoney(docTotal)}</span>
-                    </div>
-                  </Card>
+                  </div>
                 </Link>
               )
             })}
           </div>
         )}
 
-        <Divider />
-        <Button variant="danger" size="sm" onClick={handleDeleteJob}>
-          <Trash2 size={14} /> この案件を削除
-        </Button>
+        {/* 案件削除 */}
+        <div style={{ padding: '8px 16px 16px' }}>
+          <button
+            onClick={handleDeleteJob}
+            style={{
+              width: '100%', padding: '10px', borderRadius: 8,
+              border: '1px solid #ffcdd2', backgroundColor: '#fff8f8',
+              color: '#e53935', fontSize: 13,
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+              cursor: 'pointer',
+            }}
+          >
+            <Trash2 size={14} /> この案件を削除
+          </button>
+        </div>
       </main>
+
+      {/* 下部合計バー + アクションタブ */}
+      <div style={{
+        position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
+        maxWidth: 576, margin: '0 auto',
+      }}>
+        {/* 合計サマリー */}
+        <div style={{ backgroundColor: '#1a9baa', padding: '10px 20px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+            <span style={{ color: '#fff', fontSize: 13 }}>合計</span>
+            <span style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>{total.toLocaleString('ja-JP')}円</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+            <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>10%合計</span>
+            <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: 12 }}>0円</span>
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>8%合計</span>
+            <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: 12 }}>0円</span>
+          </div>
+        </div>
+
+        {/* アクションタブ */}
+        <div style={{
+          backgroundColor: '#1a4a80',
+          display: 'flex', justifyContent: 'space-around',
+          padding: '10px 0 14px',
+        }}>
+          <button
+            onClick={() => router.push('/')}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, background: 'none', border: 'none', cursor: 'pointer' }}
+          >
+            <span style={{ fontSize: 22 }}>✓</span>
+            <span style={{ color: '#fff', fontSize: 11 }}>終了</span>
+          </button>
+          <button
+            onClick={() => {}}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, background: 'none', border: 'none', cursor: 'pointer' }}
+          >
+            <span style={{ fontSize: 20 }}>👁</span>
+            <span style={{ color: '#fff', fontSize: 11 }}>プレビュー</span>
+          </button>
+          <button
+            onClick={() => {}}
+            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, background: 'none', border: 'none', cursor: 'pointer' }}
+          >
+            <span style={{ fontSize: 20 }}>💰</span>
+            <span style={{ color: '#fff', fontSize: 11 }}>入金</span>
+          </button>
+          <Link href={`/jobs/${jobId}/documents/new`}>
+            <button
+              style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, background: 'none', border: 'none', cursor: 'pointer' }}
+            >
+              <FileEdit size={22} color="#fff" />
+              <span style={{ color: '#fff', fontSize: 11 }}>作成/編集</span>
+            </button>
+          </Link>
+        </div>
+      </div>
 
       {/* 明細追加モーダル */}
       <Modal open={addOpen} onClose={() => setAddOpen(false)} title="明細を追加">
@@ -235,18 +381,10 @@ export default function JobDetailClient({ jobId }: Props) {
         </FormGroup>
         <div className="grid grid-cols-2 gap-2.5">
           <FormGroup label="単価">
-            <Input
-              type="number" value={itemPrice}
-              onChange={e => setItemPrice(e.target.value)}
-              placeholder="0" className="text-right"
-            />
+            <Input type="number" value={itemPrice} onChange={e => setItemPrice(e.target.value)} placeholder="0" className="text-right" />
           </FormGroup>
           <FormGroup label="数量">
-            <Input
-              type="number" value={itemQty}
-              onChange={e => setItemQty(e.target.value)}
-              placeholder="1" className="text-right"
-            />
+            <Input type="number" value={itemQty} onChange={e => setItemQty(e.target.value)} placeholder="1" className="text-right" />
           </FormGroup>
         </div>
         <FormGroup label="単位">
@@ -262,7 +400,6 @@ export default function JobDetailClient({ jobId }: Props) {
       </Modal>
 
       <ToastProvider />
-      <BottomTab />
     </>
   )
 }

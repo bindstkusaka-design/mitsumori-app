@@ -23,6 +23,12 @@ export default function SettingsClient() {
   const [email, setEmail] = useState(p.email)
   const [bankInfo, setBankInfo] = useState(p.bankInfo)
   const [invoiceNo, setInvoiceNo] = useState(p.invoiceNumber)
+  // 振込先（構造化）
+  const [bankName, setBankName] = useState(p.bankName ?? 'ゆうちょ銀行')
+  const [bankBranch, setBankBranch] = useState(p.bankBranch ?? '628')
+  const [bankAccountType, setBankAccountType] = useState(p.bankAccountType ?? '普通預金')
+  const [bankAccountNumber, setBankAccountNumber] = useState(p.bankAccountNumber ?? '1798772')
+  const [bankAccountHolder, setBankAccountHolder] = useState(p.bankAccountHolder ?? 'クサカ\u3000トモアキ')
 
   // テンプレート
   const [titleTemplates, setTitleTemplates] = useState<string[]>(settings.titleTemplates)
@@ -35,6 +41,11 @@ export default function SettingsClient() {
   useEffect(() => {
     setCompany(p.companyName); setPostal(p.postalCode); setAddress(p.address)
     setTel(p.tel); setEmail(p.email); setBankInfo(p.bankInfo); setInvoiceNo(p.invoiceNumber)
+    setBankName(p.bankName ?? 'ゆうちょ銀行')
+    setBankBranch(p.bankBranch ?? '628')
+    setBankAccountType(p.bankAccountType ?? '普通預金')
+    setBankAccountNumber(p.bankAccountNumber ?? '1798772')
+    setBankAccountHolder(p.bankAccountHolder ?? 'クサカ\u3000トモアキ')
     setTitleTemplates(settings.titleTemplates)
     setNoteTemplates(settings.noteTemplates)
     setSealDataUrl(loadSeal())
@@ -76,6 +87,11 @@ export default function SettingsClient() {
         email: email.trim(),
         bankInfo: bankInfo.trim(),
         invoiceNumber: invoiceNo.trim(),
+        bankName: bankName.trim(),
+        bankBranch: bankBranch.trim(),
+        bankAccountType: bankAccountType.trim(),
+        bankAccountNumber: bankAccountNumber.trim(),
+        bankAccountHolder: bankAccountHolder.trim(),
       },
       titleTemplates,
       noteTemplates,
@@ -118,9 +134,38 @@ export default function SettingsClient() {
           <FormGroup label="インボイス登録番号">
             <Input value={invoiceNo} onChange={e => setInvoiceNo(e.target.value)} placeholder="T1234567890123" />
           </FormGroup>
-          <FormGroup label="振込先情報">
-            <Textarea value={bankInfo} onChange={e => setBankInfo(e.target.value)} placeholder={'〇〇銀行 △△支店\n普通 1234567\n口座名義: ○○'} />
+        </Card>
+
+        {/* 振込先情報（構造化） */}
+        <Card className="p-4 mb-4">
+          <p className="font-bold text-sm mb-4">振込先情報（請求書に自動表示）</p>
+          <div className="grid grid-cols-2 gap-2.5">
+            <FormGroup label="銀行名">
+              <Input value={bankName} onChange={e => setBankName(e.target.value)} placeholder="ゆうちょ銀行" />
+            </FormGroup>
+            <FormGroup label="店番">
+              <Input value={bankBranch} onChange={e => setBankBranch(e.target.value)} placeholder="628" />
+            </FormGroup>
+          </div>
+          <div className="grid grid-cols-2 gap-2.5">
+            <FormGroup label="口座種別">
+              <Input value={bankAccountType} onChange={e => setBankAccountType(e.target.value)} placeholder="普通預金" />
+            </FormGroup>
+            <FormGroup label="口座番号">
+              <Input value={bankAccountNumber} onChange={e => setBankAccountNumber(e.target.value)} placeholder="1798772" />
+            </FormGroup>
+          </div>
+          <FormGroup label="口座名義">
+            <Input value={bankAccountHolder} onChange={e => setBankAccountHolder(e.target.value)} placeholder="クサカ　トモアキ" />
           </FormGroup>
+          {(bankName || bankAccountNumber) && (
+            <div className="mt-3 p-3 bg-surface-2 rounded text-xs text-ink-muted leading-relaxed">
+              <p className="font-semibold text-ink-sub mb-1">プレビュー（請求書PDF）</p>
+              {bankName && <p>{bankName}{bankBranch ? `\u3000\u3000店番：${bankBranch}` : ''}</p>}
+              {bankAccountType && <p>{bankAccountType}{bankAccountNumber ? `\u3000\u3000口座番号：${bankAccountNumber}` : ''}</p>}
+              {bankAccountHolder && <p>口座名義：{bankAccountHolder}</p>}
+            </div>
+          )}
         </Card>
 
         {/* 件名テンプレート */}

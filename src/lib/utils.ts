@@ -1,5 +1,5 @@
 import { type ClassValue, clsx } from 'clsx'
-import type { DocumentItem, JobItem, QuoteTotals } from '@/types'
+import type { DocumentItem, JobItem, QuoteTotals, DocumentType } from '@/types'
 
 // ── CSS class merging ──────────────────────────────────────────
 export function cn(...inputs: ClassValue[]) {
@@ -39,10 +39,22 @@ export function fmtMoney(n: number): string {
   return '¥' + Math.round(n).toLocaleString('ja-JP')
 }
 
-// ── Quote number ───────────────────────────────────────────────
-export function autoQuoteNo(existingCount: number): string {
+// ── Document number ────────────────────────────────────────────
+const DOC_PREFIX: Record<DocumentType, string> = {
+  quote: 'Q',
+  invoice: 'S',
+  receipt: 'R',
+}
+
+export function autoDocNo(type: DocumentType, count: number): string {
   const y = new Date().getFullYear()
-  return `Q-${y}-${String(existingCount + 1).padStart(3, '0')}`
+  const prefix = DOC_PREFIX[type]
+  return `${prefix}-${y}-${String(count + 1).padStart(3, '0')}`
+}
+
+/** 後方互換: 旧コードが参照している場合に備えて残す */
+export function autoQuoteNo(existingCount: number): string {
+  return autoDocNo('quote', existingCount)
 }
 
 // ── Totals calculation ─────────────────────────────────────────

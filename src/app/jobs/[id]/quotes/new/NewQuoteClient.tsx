@@ -33,6 +33,7 @@ export default function NewQuoteClient({ jobId }: { jobId: string }) {
     if (!subject.trim()) { showToast('件名を入力してください', 'error'); return }
     if (items.length === 0) { showToast('明細が0件です。案件に明細を追加してください', 'error'); return }
     const doc = createDocument(jobId, {
+      docType: 'quote',
       quoteNumber: quoteNumber.trim(),
       subject: subject.trim(),
       expireDate,
