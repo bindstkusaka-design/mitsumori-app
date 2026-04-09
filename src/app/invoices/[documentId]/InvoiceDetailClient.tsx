@@ -12,6 +12,7 @@ import {
 import TopNav from '@/components/layout/TopNav'
 import BackButton from '@/components/layout/BackButton'
 import BottomTab from '@/components/layout/BottomTab'
+import DocShareButtons from '@/components/DocShareButtons'
 
 export default function InvoiceDetailClient({ documentId }: { documentId: string }) {
   const router = useRouter()
@@ -62,7 +63,7 @@ export default function InvoiceDetailClient({ documentId }: { documentId: string
         }
       </style>
     </head><body>${html}
-      <br><button onclick="window.print()" style="padding:10px 24px;background:#c0392b;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;">印刷する</button>
+      <br><button onclick="window.print()" style="padding:10px 24px;background:#1a6bb5;color:white;border:none;border-radius:6px;cursor:pointer;font-size:14px;">印刷する</button>
     </body></html>`)
     w.document.close()
   }
@@ -155,17 +156,17 @@ export default function InvoiceDetailClient({ documentId }: { documentId: string
               >
                 {page.isFirst && (
                   <>
-                    {/* タイトル */}
+                    {/* タイトル + ページ番号 */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 3 }}>
-                      <div style={{ backgroundColor: '#c0392b', color: '#fff', padding: '6px 20px', fontWeight: 700, fontSize: 18, borderRadius: 3, letterSpacing: '0.1em', flexShrink: 0, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}>
+                      <div style={{ backgroundColor: '#1a6bb5', color: '#fff', padding: '6px 20px', fontWeight: 700, fontSize: 18, borderRadius: 3, letterSpacing: '0.1em', flexShrink: 0, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}>
                         御請求書
                       </div>
                       <div style={{ textAlign: 'right', fontSize: 10, color: '#888' }}>
-                        1/{totalPages} ページ
+                        {1}/{totalPages} ページ
                       </div>
                     </div>
 
-                    {/* No. + 顧客名 */}
+                    {/* 顧客名(左58%) + No.(右) */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                       <div style={{ width: '58%', textAlign: 'right', fontSize: 14, borderBottom: '1px solid #ccc', paddingBottom: 4, marginBottom: 4 }}>
                         {job?.client}<span style={{ marginLeft: 6 }}>{doc.honorific ?? '御中'}</span>
@@ -173,9 +174,9 @@ export default function InvoiceDetailClient({ documentId }: { documentId: string
                       <div style={{ fontSize: 11, color: '#555' }}>No.&nbsp;{doc.quoteNumber || '-'}</div>
                     </div>
 
-                    {/* 発行情報 + 会社情報 */}
+                    {/* 発行情報(左55%) + 会社情報+角印(右45%) */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
-                      <div style={{ width: '58%' }}>
+                      <div style={{ width: '55%' }}>
                         {[
                           { label: '件名', value: doc.subject },
                           { label: '発行日', value: fmtDate(doc.issueDate) },
@@ -191,8 +192,8 @@ export default function InvoiceDetailClient({ documentId }: { documentId: string
                           <span style={{ flex: 1, textAlign: 'right', fontWeight: 700, fontSize: 14 }}>{fmtYen(total)}</span>
                         </div>
                       </div>
-                      <div style={{ width: '40%', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', gap: 8, overflow: 'hidden' }}>
-                        <div style={{ textAlign: 'right', fontSize: 10, lineHeight: 1.6, color: '#555', flex: '1 1 auto', minWidth: 0, overflow: 'hidden', wordBreak: 'break-word' }}>
+                      <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'flex-start', gap: 8, overflow: 'hidden' }}>
+                        <div style={{ fontSize: 10, lineHeight: 1.6, color: '#555', minWidth: 0, wordBreak: 'break-word' }}>
                           {p.companyName
                             ? <div style={{ fontWeight: 600, color: '#111' }}>{p.companyName}</div>
                             : <div style={{ color: '#aaa' }}>（発行者未設定）</div>}
@@ -277,10 +278,10 @@ export default function InvoiceDetailClient({ documentId }: { documentId: string
                       </tbody>
                     </table>
 
-                    {/* 振込先 */}
+                    {/* 振込先（備考テーブル外・独立セクション） */}
                     {(p.bankName || p.bankAccountNumber) && (
-                      <div style={{ marginTop: 12, border: '1px solid #ddd', borderRadius: 3, padding: '8px 10px', fontSize: 11 }}>
-                        <div style={{ fontWeight: 600, marginBottom: 4, borderBottom: '1px solid #eee', paddingBottom: 3 }}>お振込先</div>
+                      <div style={{ borderTop: '1px solid #ccc', padding: '8px 0', fontSize: 12 }}>
+                        <div style={{ fontWeight: 700, marginBottom: 4, fontSize: 12 }}>お振込先</div>
                         {bankLine1 && <div style={{ color: '#333' }}>{bankLine1}</div>}
                         {bankLine2 && <div style={{ color: '#333' }}>{bankLine2}</div>}
                         {bankLine3 && <div style={{ color: '#333' }}>{bankLine3}</div>}
@@ -325,6 +326,12 @@ export default function InvoiceDetailClient({ documentId }: { documentId: string
           <Button variant="ghost" size="lg" onClick={handlePrint}>
             <Printer size={17} /> 印刷 / PDF出力
           </Button>
+          <DocShareButtons
+            printRef={printRef}
+            fileName={`御請求書_${job?.client ?? ''}_${doc.issueDate}`}
+            subject={`御請求書 No.${doc.quoteNumber} - ${doc.subject}`}
+            bodyText={`${job?.client ?? ''}様\n\n御請求書をお送りします。\n件名: ${doc.subject}\nNo: ${doc.quoteNumber}`}
+          />
           {!isFinalized && (
             <>
               <Divider />

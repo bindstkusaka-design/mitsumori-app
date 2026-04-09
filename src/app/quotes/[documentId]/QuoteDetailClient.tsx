@@ -12,6 +12,7 @@ import {
 import TopNav from '@/components/layout/TopNav'
 import BackButton from '@/components/layout/BackButton'
 import BottomTab from '@/components/layout/BottomTab'
+import DocShareButtons from '@/components/DocShareButtons'
 
 export default function QuoteDetailClient({ documentId }: { documentId: string }) {
   const router = useRouter()
@@ -180,29 +181,27 @@ export default function QuoteDetailClient({ documentId }: { documentId: string }
                 {/* 1ページ目のみ: タイトル・顧客名・会社情報・区切り線 */}
                 {page.isFirst && (
                   <>
-                    {/* ① タイトル行: 御見積書バッジ(左) + ページ番号(右) */}
+                    {/* ① タイトル行: 御見積書バッジ + ページ番号 */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 3 }}>
                       <div style={{ backgroundColor: '#1a6bb5', color: '#fff', padding: '6px 20px', fontWeight: 700, fontSize: 18, borderRadius: 3, letterSpacing: '0.1em', flexShrink: 0, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}>
                         御見積書
                       </div>
                       <div style={{ textAlign: 'right', fontSize: 10, color: '#888' }}>
-                        1/{totalPages} ページ
+                        {1}/{totalPages} ページ
                       </div>
                     </div>
 
-                    {/* ② No.(右) + 顧客名（左58%内右寄せ） */}
+                    {/* ② 顧客名(左58%) + No.(右) */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                       <div style={{ width: '58%', textAlign: 'right', fontSize: 14, borderBottom: '1px solid #ccc', paddingBottom: 4, marginBottom: 4 }}>
                         {job?.client}<span style={{ marginLeft: 6 }}>{doc.honorific ?? '御中'}</span>
                       </div>
-                      <div style={{ fontSize: 11, color: '#555' }}>
-                        No.&nbsp;{doc.quoteNumber || '-'}
-                      </div>
+                      <div style={{ fontSize: 11, color: '#555' }}>No.&nbsp;{doc.quoteNumber || '-'}</div>
                     </div>
 
-                    {/* ③ 発行情報(左58%) + 会社情報+角印(右40%) */}
+                    {/* ③ 発行情報(左55%) + 会社情報+角印(右45%) */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
-                      <div style={{ width: '58%' }}>
+                      <div style={{ width: '55%' }}>
                         {[
                           { label: '件名', value: doc.subject },
                           { label: '納期日', value: '' },
@@ -219,8 +218,8 @@ export default function QuoteDetailClient({ documentId }: { documentId: string }
                           <span style={{ flex: 1, textAlign: 'right', fontWeight: 700, fontSize: 14 }}>{fmtYen(total)}</span>
                         </div>
                       </div>
-                      <div style={{ width: '40%', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', gap: 8, overflow: 'hidden' }}>
-                        <div style={{ textAlign: 'right', fontSize: 10, lineHeight: 1.6, color: '#555', flex: '1 1 auto', minWidth: 0, overflow: 'hidden', wordBreak: 'break-word' }}>
+                      <div style={{ width: '43%', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start', gap: 8, overflow: 'hidden', paddingLeft: 12 }}>
+                        <div style={{ fontSize: 10, lineHeight: 1.6, color: '#555', flex: '1 1 auto', minWidth: 0, wordBreak: 'break-word' }}>
                           {p.companyName
                             ? <div style={{ fontWeight: 600, color: '#111' }}>{p.companyName}</div>
                             : <div style={{ color: '#aaa' }}>（発行者未設定）</div>}
@@ -350,6 +349,13 @@ export default function QuoteDetailClient({ documentId }: { documentId: string }
           <Button variant="ghost" size="lg" onClick={handlePrint}>
             <Printer size={17} /> 印刷 / PDF出力
           </Button>
+
+          <DocShareButtons
+            printRef={printRef}
+            fileName={`御見積書_${job?.client ?? ''}_${doc.issueDate}`}
+            subject={`御見積書 No.${doc.quoteNumber} - ${doc.subject}`}
+            bodyText={`${job?.client ?? ''}様\n\n御見積書をお送りします。\n件名: ${doc.subject}\nNo: ${doc.quoteNumber}`}
+          />
 
           <Divider />
           <p className="text-xs text-ink-muted px-1">この見積書から作成</p>

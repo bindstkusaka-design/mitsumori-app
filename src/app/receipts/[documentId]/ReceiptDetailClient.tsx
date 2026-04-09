@@ -12,6 +12,7 @@ import {
 import TopNav from '@/components/layout/TopNav'
 import BackButton from '@/components/layout/BackButton'
 import BottomTab from '@/components/layout/BottomTab'
+import DocShareButtons from '@/components/DocShareButtons'
 
 export default function ReceiptDetailClient({ documentId }: { documentId: string }) {
   const router = useRouter()
@@ -148,17 +149,17 @@ export default function ReceiptDetailClient({ documentId }: { documentId: string
               >
                 {page.isFirst && (
                   <>
-                    {/* タイトル */}
+                    {/* タイトル + ページ番号 */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 3 }}>
                       <div style={{ backgroundColor: '#7b3fa0', color: '#fff', padding: '6px 20px', fontWeight: 700, fontSize: 18, borderRadius: 3, letterSpacing: '0.1em', flexShrink: 0, WebkitPrintColorAdjust: 'exact', printColorAdjust: 'exact' } as React.CSSProperties}>
                         領収書
                       </div>
                       <div style={{ textAlign: 'right', fontSize: 10, color: '#888' }}>
-                        1/{totalPages} ページ
+                        {1}/{totalPages} ページ
                       </div>
                     </div>
 
-                    {/* No. + 顧客名 */}
+                    {/* 顧客名(左58%) + No.(右) */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                       <div style={{ width: '58%', textAlign: 'right', fontSize: 14, borderBottom: '1px solid #ccc', paddingBottom: 4, marginBottom: 4 }}>
                         {job?.client}<span style={{ marginLeft: 6 }}>{doc.honorific ?? '御中'}</span>
@@ -166,9 +167,9 @@ export default function ReceiptDetailClient({ documentId }: { documentId: string
                       <div style={{ fontSize: 11, color: '#555' }}>No.&nbsp;{doc.quoteNumber || '-'}</div>
                     </div>
 
-                    {/* 発行情報 + 会社情報 */}
+                    {/* 発行情報(左55%) + 会社情報+角印(右45%) */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 }}>
-                      <div style={{ width: '58%' }}>
+                      <div style={{ width: '55%' }}>
                         {[
                           { label: '件名', value: doc.subject },
                           { label: '領収日', value: fmtDate(doc.issueDate) },
@@ -190,8 +191,8 @@ export default function ReceiptDetailClient({ documentId }: { documentId: string
                           </div>
                         )}
                       </div>
-                      <div style={{ width: '40%', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-end', gap: 8, overflow: 'hidden' }}>
-                        <div style={{ textAlign: 'right', fontSize: 10, lineHeight: 1.6, color: '#555', flex: '1 1 auto', minWidth: 0, overflow: 'hidden', wordBreak: 'break-word' }}>
+                      <div style={{ width: '43%', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start', gap: 8, overflow: 'hidden', paddingLeft: 12 }}>
+                        <div style={{ fontSize: 10, lineHeight: 1.6, color: '#555', flex: '1 1 auto', minWidth: 0, wordBreak: 'break-word' }}>
                           {p.companyName
                             ? <div style={{ fontWeight: 600, color: '#111' }}>{p.companyName}</div>
                             : <div style={{ color: '#aaa' }}>（発行者未設定）</div>}
@@ -310,6 +311,12 @@ export default function ReceiptDetailClient({ documentId }: { documentId: string
           <Button variant="ghost" size="lg" onClick={handlePrint}>
             <Printer size={17} /> 印刷 / PDF出力
           </Button>
+          <DocShareButtons
+            printRef={printRef}
+            fileName={`領収書_${job?.client ?? ''}_${doc.issueDate}`}
+            subject={`領収書 No.${doc.quoteNumber} - ${doc.subject}`}
+            bodyText={`${job?.client ?? ''}様\n\n領収書をお送りします。\n件名: ${doc.subject}\nNo: ${doc.quoteNumber}`}
+          />
           {!isFinalized && (
             <>
               <Divider />

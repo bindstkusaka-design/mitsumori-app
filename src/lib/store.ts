@@ -54,6 +54,25 @@ const DEFAULT_PERSISTED: PersistedState = {
   settings: DEFAULT_SETTINGS,
 }
 
+/**
+ * 保存データを DEFAULT_SETTINGS とディープマージして返す。
+ * 古いデータに銀行フィールドなどが存在しない場合でもデフォルト値が補完される。
+ */
+export function mergeWithDefaults(stored: Partial<PersistedState>): PersistedState {
+  return {
+    ...DEFAULT_PERSISTED,
+    ...stored,
+    settings: {
+      ...DEFAULT_SETTINGS,
+      ...(stored.settings ?? {}),
+      profile: {
+        ...DEFAULT_SETTINGS.profile,
+        ...(stored.settings?.profile ?? {}),
+      },
+    },
+  }
+}
+
 // ── Store interface ────────────────────────────────────────────
 interface AppStore extends PersistedState {
   createJob(params: Pick<Job, 'name' | 'client' | 'contactPerson'>): Job
@@ -92,7 +111,7 @@ interface AppStore extends PersistedState {
 // ── Store implementation ───────────────────────────────────────
 export const useStore = create<AppStore>()(
   subscribeWithSelector((set, get) => ({
-    ...loadStorage<PersistedState>(DEFAULT_PERSISTED),
+    ...mergeWithDefaults(loadStorage<Partial<PersistedState>>({})),
 
     createJob({ name, client, contactPerson }) {
       const job: Job = {
@@ -252,8 +271,8 @@ export const useStore = create<AppStore>()(
     },
 
     _hydrate() {
-      const data = loadStorage<PersistedState>(DEFAULT_PERSISTED)
-      set(data)
+      const data = loadStorage<Partial<PersistedState>>({})
+      set(mergeWithDefaults(data))
     },
   })),
 )

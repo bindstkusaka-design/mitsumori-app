@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import CloudSyncInit from '@/components/CloudSyncInit'
 
 export const metadata: Metadata = {
   title: '見積書作成',
@@ -27,7 +28,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ja">
-      <body>{children}</body>
+      <body>
+        <CloudSyncInit>{children}</CloudSyncInit>
+      </body>
     </html>
   )
 }

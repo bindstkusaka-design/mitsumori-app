@@ -1,0 +1,427 @@
+{
+  "jobs": [
+    {
+      "id": "mnnt1lgcisod",
+      "name": "残存物撤去作業",
+      "client": "吉本",
+      "contactPerson": "",
+      "status": "active",
+      "createdAt": "2026-04-06T23:11:49.212Z",
+      "updatedAt": "2026-04-06T23:11:49.215Z"
+    },
+    {
+      "id": "mnnu26rc31ea",
+      "name": "残存物撤去作業",
+      "client": "山田",
+      "contactPerson": "",
+      "status": "active",
+      "createdAt": "2026-04-06T23:40:16.440Z",
+      "updatedAt": "2026-04-06T23:40:16.441Z"
+    },
+    {
+      "id": "mnpheo9hzq97",
+      "name": "残存物撤去作業",
+      "client": "曽我部",
+      "contactPerson": "",
+      "status": "active",
+      "createdAt": "2026-04-08T03:21:36.341Z",
+      "updatedAt": "2026-04-08T03:21:36.344Z"
+    },
+    {
+      "id": "mnq0xu5k6q5t",
+      "name": "残存物撤去作業",
+      "client": "曽我部",
+      "contactPerson": "",
+      "status": "active",
+      "createdAt": "2026-04-08T12:28:23.144Z",
+      "updatedAt": "2026-04-08T12:28:23.146Z"
+    }
+  ],
+  "jobItems": [
+    {
+      "id": "mnnt23h0taei",
+      "jobId": "mnnt1lgcisod",
+      "sortOrder": 0,
+      "name": "作業人工",
+      "price": 18000,
+      "qty": 3,
+      "unit": "人",
+      "note": ""
+    },
+    {
+      "id": "mnnt2qa8khsw",
+      "jobId": "mnnt1lgcisod",
+      "sortOrder": 1,
+      "name": "運搬・処分費",
+      "price": 16000,
+      "qty": 3,
+      "unit": "台",
+      "note": ""
+    },
+    {
+      "id": "mnnu2ik90ox8",
+      "jobId": "mnnu26rc31ea",
+      "sortOrder": 0,
+      "name": "作業人工",
+      "price": 18000,
+      "qty": 1,
+      "unit": "人",
+      "note": ""
+    },
+    {
+      "id": "mnphft8ou2v5",
+      "jobId": "mnpheo9hzq97",
+      "sortOrder": 0,
+      "name": "作業人工",
+      "price": 25500,
+      "qty": 1,
+      "unit": "式",
+      "note": ""
+    },
+    {
+      "id": "mnphgf3b7vlb",
+      "jobId": "mnpheo9hzq97",
+      "sortOrder": 1,
+      "name": "運搬・処分費",
+      "price": 9750,
+      "qty": 2,
+      "unit": "台",
+      "note": ""
+    },
+    {
+      "id": "mnphh5ei4jyc",
+      "jobId": "mnpheo9hzq97",
+      "sortOrder": 2,
+      "name": "小型家電リサイクル費",
+      "price": 3000,
+      "qty": 1,
+      "unit": "式",
+      "note": ""
+    },
+    {
+      "id": "mnphi3ldgvpx",
+      "jobId": "mnpheo9hzq97",
+      "sortOrder": 3,
+      "name": "テレビリサイクル費",
+      "price": 4700,
+      "qty": 1,
+      "unit": "台",
+      "note": ""
+    },
+    {
+      "id": "mnq0y3tdb2cf",
+      "jobId": "mnq0xu5k6q5t",
+      "sortOrder": 0,
+      "name": "作業人工",
+      "price": 18000,
+      "qty": 1,
+      "unit": "人",
+      "note": ""
+    }
+  ],
+  "documents": [
+    {
+      "id": "mnnt332tau3k",
+      "jobId": "mnnt1lgcisod",
+      "status": "draft",
+      "createdAt": "2026-04-06T23:12:58.709Z",
+      "updatedAt": "2026-04-06T23:12:58.709Z",
+      "pdfPath": null,
+      "pdfSavedAt": null,
+      "issueDate": "2026-04-07",
+      "quoteNumber": "Q-2026-001",
+      "subject": "残存物撤去作業",
+      "expireDate": "2026-05-07",
+      "taxRate": 0,
+      "honorific": "様",
+      "note": ""
+    },
+    {
+      "id": "mnnu2sgxh1c5",
+      "jobId": "mnnu26rc31ea",
+      "status": "draft",
+      "createdAt": "2026-04-06T23:40:44.577Z",
+      "updatedAt": "2026-04-06T23:40:44.577Z",
+      "pdfPath": null,
+      "pdfSavedAt": null,
+      "issueDate": "2026-04-07",
+      "quoteNumber": "Q-2026-002",
+      "subject": "残存物撤去作業",
+      "expireDate": "2026-05-07",
+      "taxRate": 0.1,
+      "honorific": "様",
+      "note": ""
+    },
+    {
+      "id": "mnphim9g0ays",
+      "jobId": "mnpheo9hzq97",
+      "docType": "invoice",
+      "status": "finalized",
+      "createdAt": "2026-04-08T03:24:40.372Z",
+      "updatedAt": "2026-04-08T03:24:58.469Z",
+      "pdfPath": "documents/mnphim9g0ays.pdf",
+      "pdfSavedAt": "2026-04-09T06:18:32.614Z",
+      "issueDate": "2026-04-08",
+      "taxiRemark": "",
+      "quoteNumber": "S-2026-001",
+      "subject": "残存物撤去作業",
+      "expireDate": "2026-05-08",
+      "taxRate": 0,
+      "honorific": "様",
+      "note": ""
+    },
+    {
+      "id": "mnq03owq74x5",
+      "jobId": "mnpheo9hzq97",
+      "docType": "quote",
+      "status": "draft",
+      "createdAt": "2026-04-08T12:04:56.666Z",
+      "updatedAt": "2026-04-08T12:04:56.688Z",
+      "pdfPath": null,
+      "pdfSavedAt": null,
+      "issueDate": "2026-04-08",
+      "taxiRemark": "",
+      "quoteNumber": "Q-2026-003",
+      "subject": "残存物撤去作業",
+      "expireDate": "2026-05-08",
+      "taxRate": 0,
+      "honorific": "様",
+      "note": ""
+    },
+    {
+      "id": "mnq0yjl4ar20",
+      "jobId": "mnq0xu5k6q5t",
+      "docType": "invoice",
+      "status": "draft",
+      "createdAt": "2026-04-08T12:28:56.104Z",
+      "updatedAt": "2026-04-08T12:28:56.104Z",
+      "pdfPath": null,
+      "pdfSavedAt": null,
+      "issueDate": "2026-04-08",
+      "taxiRemark": "",
+      "quoteNumber": "S-2026-002",
+      "subject": "残存物撤去作業",
+      "expireDate": "2026-05-08",
+      "taxRate": 0,
+      "honorific": "様",
+      "note": ""
+    },
+    {
+      "id": "mnq161zwn0g8",
+      "jobId": "mnq0xu5k6q5t",
+      "docType": "invoice",
+      "status": "finalized",
+      "createdAt": "2026-04-08T12:34:46.556Z",
+      "updatedAt": "2026-04-08T12:35:07.223Z",
+      "pdfPath": "documents/mnq161zwn0g8.pdf",
+      "pdfSavedAt": "2026-04-08T12:35:09.949Z",
+      "issueDate": "2026-04-08",
+      "taxiRemark": "",
+      "quoteNumber": "S-2026-003",
+      "subject": "残存物撤去作業",
+      "expireDate": "2026-05-08",
+      "taxRate": 0.1,
+      "honorific": "様",
+      "note": ""
+    }
+  ],
+  "documentItems": [
+    {
+      "id": "mnnt332uvc5o",
+      "documentId": "mnnt332tau3k",
+      "sortOrder": 0,
+      "name": "作業人工",
+      "price": 18000,
+      "qty": 3,
+      "unit": "人",
+      "note": ""
+    },
+    {
+      "id": "mnnt332ux1ik",
+      "documentId": "mnnt332tau3k",
+      "sortOrder": 1,
+      "name": "運搬・処分費",
+      "price": 16000,
+      "qty": 3,
+      "unit": "台",
+      "note": ""
+    },
+    {
+      "id": "mnnu2sgxbb61",
+      "documentId": "mnnu2sgxh1c5",
+      "sortOrder": 0,
+      "name": "作業人工",
+      "price": 18000,
+      "qty": 1,
+      "unit": "人",
+      "note": ""
+    },
+    {
+      "id": "mnphim9hb92d",
+      "documentId": "mnphim9g0ays",
+      "sortOrder": 0,
+      "name": "作業人工",
+      "price": 25500,
+      "qty": 1,
+      "unit": "式",
+      "note": ""
+    },
+    {
+      "id": "mnphim9hh78w",
+      "documentId": "mnphim9g0ays",
+      "sortOrder": 1,
+      "name": "運搬・処分費",
+      "price": 9750,
+      "qty": 2,
+      "unit": "台",
+      "note": ""
+    },
+    {
+      "id": "mnphim9hr2j7",
+      "documentId": "mnphim9g0ays",
+      "sortOrder": 2,
+      "name": "小型家電リサイクル費",
+      "price": 3000,
+      "qty": 1,
+      "unit": "式",
+      "note": ""
+    },
+    {
+      "id": "mnphim9hk938",
+      "documentId": "mnphim9g0ays",
+      "sortOrder": 3,
+      "name": "テレビリサイクル費",
+      "price": 4700,
+      "qty": 1,
+      "unit": "台",
+      "note": ""
+    },
+    {
+      "id": "mnq03oxcm6bt",
+      "documentId": "mnq03owq74x5",
+      "sortOrder": 0,
+      "name": "作業人工",
+      "price": 25500,
+      "qty": 1,
+      "unit": "式",
+      "note": ""
+    },
+    {
+      "id": "mnq03oxc3my6",
+      "documentId": "mnq03owq74x5",
+      "sortOrder": 1,
+      "name": "運搬・処分費",
+      "price": 9750,
+      "qty": 2,
+      "unit": "台",
+      "note": ""
+    },
+    {
+      "id": "mnq03oxcnnb5",
+      "documentId": "mnq03owq74x5",
+      "sortOrder": 2,
+      "name": "小型家電リサイクル費",
+      "price": 3000,
+      "qty": 1,
+      "unit": "式",
+      "note": ""
+    },
+    {
+      "id": "mnq03oxc9awi",
+      "documentId": "mnq03owq74x5",
+      "sortOrder": 3,
+      "name": "テレビリサイクル費",
+      "price": 4700,
+      "qty": 1,
+      "unit": "台",
+      "note": ""
+    },
+    {
+      "id": "mnq0yjl4cmlc",
+      "documentId": "mnq0yjl4ar20",
+      "sortOrder": 0,
+      "name": "作業人工",
+      "price": 18000,
+      "qty": 1,
+      "unit": "人",
+      "note": ""
+    },
+    {
+      "id": "mnq161zwdm22",
+      "documentId": "mnq161zwn0g8",
+      "sortOrder": 0,
+      "name": "作業人工",
+      "price": 18000,
+      "qty": 1,
+      "unit": "人",
+      "note": ""
+    }
+  ],
+  "products": [
+    {
+      "id": "mn8b6xs5eigi",
+      "createdAt": "2026-03-27T02:55:32.741Z",
+      "name": "作業人工",
+      "price": 18000,
+      "unit": "人",
+      "note": ""
+    },
+    {
+      "id": "mn8b7u2u8cq8",
+      "createdAt": "2026-03-27T02:56:14.598Z",
+      "name": "運搬・処分費",
+      "price": 16000,
+      "unit": "台",
+      "note": ""
+    },
+    {
+      "id": "mndv8ly87zjg",
+      "createdAt": "2026-03-31T00:15:33.920Z",
+      "name": "諸経費",
+      "price": 8000,
+      "unit": "式",
+      "note": ""
+    },
+    {
+      "id": "mnfbrky6ebs6",
+      "createdAt": "2026-04-01T00:45:59.118Z",
+      "name": "草刈作業",
+      "price": 120,
+      "unit": "㎡",
+      "note": ""
+    },
+    {
+      "id": "mnfelprhin9z",
+      "createdAt": "2026-04-01T02:05:24.269Z",
+      "name": "除草剤散布作業",
+      "price": 500,
+      "unit": "㎡",
+      "note": ""
+    }
+  ],
+  "settings": {
+    "profile": {
+      "companyName": "トータルプランニングバインズ",
+      "postalCode": "770-0047",
+      "address": "徳島市名東町三丁目444-7",
+      "tel": "090-8286-5913",
+      "email": "binds.kusaka@gmail.com",
+      "bankInfo": "ゆうちょ銀行\n店名６２８\n普通　口座番号１７９８７７２",
+      "invoiceNumber": "",
+      "bankName": "ゆうちょ銀行",
+      "bankBranch": "628",
+      "bankAccountType": "普通預金",
+      "bankAccountNumber": "1798772",
+      "bankAccountHolder": "クサカ　トモアキ"
+    },
+    "titleTemplates": [
+      "残存物撤去作業",
+      "草刈作業",
+      "保守サポートのご提案"
+    ],
+    "noteTemplates": [
+      "お支払いは請求書発行後30日以内にお願いいたします。",
+      "本見積書の有効期限は発行日より30日間です。"
+    ]
+  }
+}
