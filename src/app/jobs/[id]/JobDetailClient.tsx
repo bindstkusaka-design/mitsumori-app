@@ -3,7 +3,7 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, Trash2, FileEdit } from 'lucide-react'
+import { Plus, Trash2, FileEdit, Pencil, ChevronUp, ChevronDown } from 'lucide-react'
 import { useStore, docDetailPath } from '@/lib/store'
 import { fmtDate, fmtMoney, calcTotals } from '@/lib/utils'
 import type { DocumentType } from '@/types'
@@ -18,7 +18,6 @@ import type { JobItem } from '@/types'
 
 interface Props { jobId: string }
 
-// 書類スタンプ定義
 const STAMP_CONFIG: { type: DocumentType; label: string; color: string }[] = [
   { type: 'quote',   label: '見', color: '#1a6bb5' },
   { type: 'invoice', label: '請', color: '#c0392b' },
@@ -28,7 +27,7 @@ const STAMP_CONFIG: { type: DocumentType; label: string; color: string }[] = [
 export default function JobDetailClient({ jobId }: Props) {
   const router = useRouter()
   const {
-    getJob, getJobItems, addJobItem, removeJobItem, deleteJob,
+    getJob, getJobItems, addJobItem, updateJobItem, removeJobItem, deleteJob,
     getDocumentsByJob, getDocumentItems, products,
   } = useStore()
 
@@ -36,8 +35,8 @@ export default function JobDetailClient({ jobId }: Props) {
   const items = getJobItems(jobId)
   const docs = getDocumentsByJob(jobId)
 
+  // ── 追加モーダル state ─────────────────────────────────
   const [addOpen, setAddOpen] = useState(false)
-  const [actionOpen, setActionOpen] = useState(false)
   const [itemName, setItemName] = useState('')
   const [itemPrice, setItemPrice] = useState('')
   const [itemQty, setItemQty] = useState('1')
@@ -45,6 +44,19 @@ export default function JobDetailClient({ jobId }: Props) {
   const [itemNote, setItemNote] = useState('')
   const [suggestions, setSuggestions] = useState<typeof products>([])
 
+  // ── 編集モーダル state ─────────────────────────────────
+  const [editOpen, setEditOpen] = useState(false)
+  const [editId, setEditId] = useState<string | null>(null)
+  const [editName, setEditName] = useState('')
+  const [editPrice, setEditPrice] = useState('')
+  const [editQty, setEditQty] = useState('1')
+  const [editUnit, setEditUnit] = useState('式')
+  const [editNote, setEditNote] = useState('')
+
+  // ── アクションモーダル state ───────────────────────────
+  const [actionOpen, setActionOpen] = useState(false)
+
+  // ── 追加モーダル ───────────────────────────────────────
   function openAdd() {
     setItemName(''); setItemPrice(''); setItemQty('1'); setItemUnit('式'); setItemNote('')
     setSuggestions([])
@@ -73,6 +85,43 @@ export default function JobDetailClient({ jobId }: Props) {
     showToast('明細を追加しました', 'success')
   }
 
+  // ── 編集モーダル ───────────────────────────────────────
+  function openEdit(item: JobItem) {
+    setEditId(item.id)
+    setEditName(item.name)
+    setEditPrice(String(item.price))
+    setEditQty(String(item.qty))
+    setEditUnit(item.unit)
+    setEditNote(item.note ?? '')
+    setEditOpen(true)
+  }
+
+  function handleEditItem() {
+    if (!editId) return
+    if (!editName.trim()) { showToast('品名を入力してください', 'error'); return }
+    updateJobItem(editId, {
+      name: editName.trim(),
+      price: parseFloat(editPrice) || 0,
+      qty: parseFloat(editQty) || 1,
+      unit: editUnit || '式',
+      note: editNote.trim(),
+    })
+    setEditOpen(false)
+    showToast('更新しました', 'success')
+  }
+
+  // ── 並び替え ───────────────────────────────────────────
+  function moveItem(id: string, direction: 'up' | 'down') {
+    const idx = items.findIndex(i => i.id === id)
+    if (direction === 'up' && idx === 0) return
+    if (direction === 'down' && idx === items.length - 1) return
+    const swapIdx = direction === 'up' ? idx - 1 : idx + 1
+    const currentOrder = items[idx].sortOrder
+    const swapOrder = items[swapIdx].sortOrder
+    updateJobItem(items[idx].id, { sortOrder: swapOrder })
+    updateJobItem(items[swapIdx].id, { sortOrder: currentOrder })
+  }
+
   function handleDeleteJob() {
     if (!confirm('この案件を削除しますか？')) return
     deleteJob(jobId)
@@ -94,7 +143,6 @@ export default function JobDetailClient({ jobId }: Props) {
 
   const { subtotal, tax, total } = calcTotals(items, 0.1)
 
-  // 書類種別ごとに最新ドキュメントを取得
   const docByType: Partial<Record<DocumentType, (typeof docs)[0]>> = {}
   for (const doc of docs) {
     const t: DocumentType = doc.docType ?? 'quote'
@@ -150,7 +198,6 @@ export default function JobDetailClient({ jobId }: Props) {
                   </div>
                 )
               })}
-              {/* 空のスロット（2x2 グリッド埋め） */}
               <div style={{
                 width: 40, height: 40, borderRadius: 6,
                 border: '1.5px solid #ccc',
@@ -183,29 +230,77 @@ export default function JobDetailClient({ jobId }: Props) {
               明細がありません
             </div>
           ) : (
-            items.map((item) => (
+            items.map((item, idx) => (
               <div
                 key={item.id}
                 style={{
-                  padding: '12px 16px',
+                  padding: '10px 12px 10px 8px',
                   borderBottom: '1px solid #eee',
-                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  display: 'flex', alignItems: 'center', gap: 6,
                 }}
               >
-                <div style={{ flex: 1, minWidth: 0 }}>
+                {/* 並び替えボタン */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
+                  <button
+                    onClick={() => moveItem(item.id, 'up')}
+                    disabled={idx === 0}
+                    style={{
+                      padding: '2px 4px', background: 'none', border: 'none',
+                      cursor: idx === 0 ? 'default' : 'pointer',
+                      color: idx === 0 ? '#ddd' : '#aaa', lineHeight: 1,
+                    }}
+                    aria-label="上へ移動"
+                  >
+                    <ChevronUp size={14} />
+                  </button>
+                  <button
+                    onClick={() => moveItem(item.id, 'down')}
+                    disabled={idx === items.length - 1}
+                    style={{
+                      padding: '2px 4px', background: 'none', border: 'none',
+                      cursor: idx === items.length - 1 ? 'default' : 'pointer',
+                      color: idx === items.length - 1 ? '#ddd' : '#aaa', lineHeight: 1,
+                    }}
+                    aria-label="下へ移動"
+                  >
+                    <ChevronDown size={14} />
+                  </button>
+                </div>
+
+                {/* 項目情報（タップで編集） */}
+                <div
+                  style={{ flex: 1, minWidth: 0, cursor: 'pointer' }}
+                  onClick={() => openEdit(item)}
+                >
                   <p style={{ fontSize: 14, fontWeight: 600, color: '#111', marginBottom: 2 }}>{item.name}</p>
                   {item.note && <p style={{ fontSize: 12, color: '#888', marginBottom: 2 }}>{item.note}</p>}
                   <p style={{ fontSize: 13, color: '#555' }}>
                     {item.price.toLocaleString('ja-JP')}円 × {item.qty}{item.unit}
                   </p>
                 </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexShrink: 0, marginLeft: 12 }}>
-                  <p style={{ fontSize: 15, fontWeight: 600, color: '#111' }}>
+
+                {/* 金額・操作ボタン */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+                  <p style={{ fontSize: 14, fontWeight: 600, color: '#111', minWidth: 60, textAlign: 'right' }}>
                     {(item.price * item.qty).toLocaleString('ja-JP')}円
                   </p>
                   <button
+                    onClick={() => openEdit(item)}
+                    style={{
+                      padding: 6, background: 'none', border: 'none', cursor: 'pointer',
+                      color: '#1a6bb5',
+                    }}
+                    aria-label="編集"
+                  >
+                    <Pencil size={15} />
+                  </button>
+                  <button
                     onClick={() => { removeJobItem(item.id); showToast('削除しました') }}
-                    style={{ color: '#e57373', padding: 4, background: 'none', border: 'none', cursor: 'pointer' }}
+                    style={{
+                      padding: 6, background: 'none', border: 'none', cursor: 'pointer',
+                      color: '#e57373',
+                    }}
+                    aria-label="削除"
                   >
                     <Trash2 size={15} />
                   </button>
@@ -301,7 +396,6 @@ export default function JobDetailClient({ jobId }: Props) {
         position: 'fixed', bottom: 0, left: 0, right: 0, zIndex: 50,
         maxWidth: 576, margin: '0 auto',
       }}>
-        {/* 合計サマリー */}
         <div style={{ backgroundColor: '#1a9baa', padding: '10px 20px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
             <span style={{ color: '#fff', fontSize: 13 }}>合計</span>
@@ -316,8 +410,6 @@ export default function JobDetailClient({ jobId }: Props) {
             <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: 12 }}>0円</span>
           </div>
         </div>
-
-        {/* アクションタブ */}
         <div style={{
           backgroundColor: '#1a4a80',
           display: 'flex', justifyContent: 'space-around',
@@ -396,6 +488,35 @@ export default function JobDetailClient({ jobId }: Props) {
         <div className="flex gap-2.5 mt-2">
           <Button variant="ghost" size="lg" onClick={() => setAddOpen(false)} className="flex-1">キャンセル</Button>
           <Button variant="primary" size="lg" onClick={handleAddItem} className="flex-1">追加</Button>
+        </div>
+      </Modal>
+
+      {/* 明細編集モーダル */}
+      <Modal open={editOpen} onClose={() => setEditOpen(false)} title="明細を編集">
+        <FormGroup label="品名" required>
+          <Input
+            value={editName}
+            onChange={e => setEditName(e.target.value)}
+            placeholder="品名を入力"
+          />
+        </FormGroup>
+        <div className="grid grid-cols-2 gap-2.5">
+          <FormGroup label="単価">
+            <Input type="number" value={editPrice} onChange={e => setEditPrice(e.target.value)} placeholder="0" className="text-right" />
+          </FormGroup>
+          <FormGroup label="数量">
+            <Input type="number" value={editQty} onChange={e => setEditQty(e.target.value)} placeholder="1" className="text-right" />
+          </FormGroup>
+        </div>
+        <FormGroup label="単位">
+          <Input value={editUnit} onChange={e => setEditUnit(e.target.value)} placeholder="式" />
+        </FormGroup>
+        <FormGroup label="備考">
+          <Input value={editNote} onChange={e => setEditNote(e.target.value)} placeholder="任意" />
+        </FormGroup>
+        <div className="flex gap-2.5 mt-2">
+          <Button variant="ghost" size="lg" onClick={() => setEditOpen(false)} className="flex-1">キャンセル</Button>
+          <Button variant="primary" size="lg" onClick={handleEditItem} className="flex-1">保存</Button>
         </div>
       </Modal>
 
