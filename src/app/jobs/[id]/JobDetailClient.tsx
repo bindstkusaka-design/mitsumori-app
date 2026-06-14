@@ -1,9 +1,9 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, Trash2, FileEdit, Pencil, ChevronUp, ChevronDown } from 'lucide-react'
+import { Plus, Trash2, FileEdit, Pencil, ChevronUp, ChevronDown, Check, X } from 'lucide-react'
 import { useStore, docDetailPath } from '@/lib/store'
 import { fmtDate, fmtMoney, calcTotals } from '@/lib/utils'
 import type { DocumentType } from '@/types'
@@ -27,7 +27,7 @@ const STAMP_CONFIG: { type: DocumentType; label: string; color: string }[] = [
 export default function JobDetailClient({ jobId }: Props) {
   const router = useRouter()
   const {
-    getJob, getJobItems, addJobItem, updateJobItem, removeJobItem, deleteJob,
+    getJob, getJobItems, addJobItem, updateJobItem, removeJobItem, deleteJob, updateJob,
     getDocumentsByJob, getDocumentItems, products,
   } = useStore()
 
@@ -55,6 +55,15 @@ export default function JobDetailClient({ jobId }: Props) {
 
   // ── アクションモーダル state ───────────────────────────
   const [actionOpen, setActionOpen] = useState(false)
+
+  // ── インライン顧客名編集 state ─────────────────────────
+  const [editingClient, setEditingClient] = useState(false)
+  const [clientDraft, setClientDraft] = useState('')
+  const clientInputRef = useRef<HTMLInputElement>(null)
+
+  // ── 値引き state ───────────────────────────────────────
+  const [discountDraft, setDiscountDraft] = useState('')
+  const [editingDiscount, setEditingDiscount] = useState(false)
 
   // ── 追加モーダル ───────────────────────────────────────
   function openAdd() {
@@ -122,6 +131,27 @@ export default function JobDetailClient({ jobId }: Props) {
     updateJobItem(items[swapIdx].id, { sortOrder: currentOrder })
   }
 
+  function startEditClient() {
+    setClientDraft(job?.client ?? '')
+    setEditingClient(true)
+    setTimeout(() => clientInputRef.current?.focus(), 50)
+  }
+
+  function saveClient() {
+    updateJob(jobId, { client: clientDraft.trim() })
+    setEditingClient(false)
+    showToast('顧客名を更新しました', 'success')
+  }
+
+  function cancelEditClient() {
+    setEditingClient(false)
+  }
+
+  function saveDiscount() {
+    updateJob(jobId, { discount: parseFloat(discountDraft) || 0 })
+    setEditingDiscount(false)
+  }
+
   function handleDeleteJob() {
     if (!confirm('この案件を削除しますか？')) return
     deleteJob(jobId)
@@ -142,6 +172,10 @@ export default function JobDetailClient({ jobId }: Props) {
   }
 
   const { subtotal, tax, total } = calcTotals(items, 0.1)
+  const discountAmt = job.discount ?? 0
+  const discountedSubtotal = Math.max(0, subtotal - discountAmt)
+  const discountedTax = Math.round(discountedSubtotal * 0.1)
+  const discountedTotal = discountedSubtotal + discountedTax
 
   const docByType: Partial<Record<DocumentType, (typeof docs)[0]>> = {}
   for (const doc of docs) {
@@ -162,9 +196,24 @@ export default function JobDetailClient({ jobId }: Props) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <h1 style={{ fontSize: 16, fontWeight: 700, color: '#1a6bb5', marginBottom: 2 }}>{job.name}</h1>
-              {job.client && (
-                <p style={{ fontSize: 13, color: '#444', marginBottom: 2 }}>
-                  {job.client}{job.contactPerson ? `　${job.contactPerson}` : ''}
+              {editingClient ? (
+                <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
+                  <input
+                    ref={clientInputRef}
+                    value={clientDraft}
+                    onChange={e => setClientDraft(e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') saveClient(); if (e.key === 'Escape') cancelEditClient() }}
+                    style={{ flex: 1, fontSize: 13, border: '1px solid #1a6bb5', borderRadius: 4, padding: '2px 6px', outline: 'none' }}
+                  />
+                  <button onClick={saveClient} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2e7d32', padding: 2 }}><Check size={14} /></button>
+                  <button onClick={cancelEditClient} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e53935', padding: 2 }}><X size={14} /></button>
+                </div>
+              ) : (
+                <p
+                  style={{ fontSize: 13, color: '#444', marginBottom: 2, cursor: 'pointer' }}
+                  onClick={startEditClient}
+                >
+                  {job.client || <span style={{ color: '#aaa' }}>顧客名をタップして入力</span>}{job.contactPerson ? `　${job.contactPerson}` : ''}
                 </p>
               )}
               <p style={{ fontSize: 12, color: '#888' }}>更新：{fmtDate(job.updatedAt)}</p>
@@ -217,9 +266,9 @@ export default function JobDetailClient({ jobId }: Props) {
           padding: '12px 16px',
           display: 'flex', justifyContent: 'space-between', alignItems: 'center',
         }}>
-          <span style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>合計</span>
+          <span style={{ color: '#fff', fontSize: 14, fontWeight: 600 }}>合計（税込）</span>
           <span style={{ color: '#fff', fontSize: 16, fontWeight: 700 }}>
-            {total.toLocaleString('ja-JP')}円
+            {discountedTotal.toLocaleString('ja-JP')}円
           </span>
         </div>
 
@@ -311,7 +360,7 @@ export default function JobDetailClient({ jobId }: Props) {
         </div>
 
         {/* 明細追加ボタン */}
-        <div style={{ padding: '0 16px 16px' }}>
+        <div style={{ padding: '0 16px 8px' }}>
           <button
             onClick={openAdd}
             style={{
@@ -324,6 +373,42 @@ export default function JobDetailClient({ jobId }: Props) {
           >
             <Plus size={16} /> 明細を追加
           </button>
+        </div>
+
+        {/* 値引き入力 */}
+        <div style={{ padding: '0 16px 16px' }}>
+          {editingDiscount ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: 6, backgroundColor: '#fff', border: '1px solid #ddd', borderRadius: 8, padding: '8px 12px' }}>
+              <span style={{ fontSize: 13, color: '#555', flexShrink: 0 }}>値引き</span>
+              <input
+                type="number"
+                value={discountDraft}
+                onChange={e => setDiscountDraft(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') saveDiscount(); if (e.key === 'Escape') setEditingDiscount(false) }}
+                style={{ flex: 1, fontSize: 13, border: '1px solid #1a6bb5', borderRadius: 4, padding: '2px 6px', textAlign: 'right', outline: 'none' }}
+                placeholder="0"
+              />
+              <span style={{ fontSize: 13, color: '#555' }}>円</span>
+              <button onClick={saveDiscount} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2e7d32' }}><Check size={14} /></button>
+              <button onClick={() => setEditingDiscount(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e53935' }}><X size={14} /></button>
+            </div>
+          ) : (
+            <button
+              onClick={() => { setDiscountDraft(String(job.discount ?? 0)); setEditingDiscount(true) }}
+              style={{
+                width: '100%', padding: '8px 12px', borderRadius: 8,
+                border: '1px solid #eee', backgroundColor: '#fff',
+                color: (job.discount ?? 0) > 0 ? '#e53935' : '#aaa', fontSize: 13,
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                cursor: 'pointer',
+              }}
+            >
+              <span>値引き</span>
+              <span style={{ fontWeight: (job.discount ?? 0) > 0 ? 600 : 400 }}>
+                {(job.discount ?? 0) > 0 ? `-${(job.discount ?? 0).toLocaleString('ja-JP')}円` : '設定なし'}
+              </span>
+            </button>
+          )}
         </div>
 
         {/* 書類一覧 */}
@@ -397,17 +482,23 @@ export default function JobDetailClient({ jobId }: Props) {
         maxWidth: 576, margin: '0 auto',
       }}>
         <div style={{ backgroundColor: '#1a9baa', padding: '10px 20px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span style={{ color: '#fff', fontSize: 13 }}>合計</span>
-            <span style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>{total.toLocaleString('ja-JP')}円</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+            <span style={{ color: '#fff', fontSize: 13 }}>合計（税込）</span>
+            <span style={{ color: '#fff', fontSize: 14, fontWeight: 700 }}>{discountedTotal.toLocaleString('ja-JP')}円</span>
           </div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
-            <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>10%合計</span>
-            <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: 12 }}>0円</span>
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+            <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>小計</span>
+            <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: 12 }}>{subtotal.toLocaleString('ja-JP')}円</span>
           </div>
+          {discountAmt > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 2 }}>
+              <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>値引き</span>
+              <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: 12 }}>-{discountAmt.toLocaleString('ja-JP')}円</span>
+            </div>
+          )}
           <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-            <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>8%合計</span>
-            <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: 12 }}>0円</span>
+            <span style={{ color: 'rgba(255,255,255,0.8)', fontSize: 12 }}>消費税（10%）</span>
+            <span style={{ color: 'rgba(255,255,255,0.9)', fontSize: 12 }}>{discountedTax.toLocaleString('ja-JP')}円</span>
           </div>
         </div>
         <div style={{

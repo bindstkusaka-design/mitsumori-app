@@ -17,6 +17,7 @@ export interface Job {
   client: string
   contactPerson: string
   status: JobStatus
+  discount?: number
   createdAt: string
   updatedAt: string
 }
@@ -62,6 +63,7 @@ export interface Document {
   honorific: Honorific
   note: string
   taxiRemark: string      // 但し書き (receipt のみ使用)
+  discount?: number
   status: DocumentStatus
   createdAt: string
   updatedAt: string

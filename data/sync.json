@@ -35,6 +35,15 @@
       "status": "active",
       "createdAt": "2026-04-08T12:28:23.144Z",
       "updatedAt": "2026-04-08T12:28:23.146Z"
+    },
+    {
+      "id": "mqd8263w3ddf",
+      "name": "草刈り作業",
+      "client": "山田",
+      "contactPerson": "",
+      "status": "active",
+      "createdAt": "2026-06-14T03:25:49.292Z",
+      "updatedAt": "2026-06-14T03:25:49.302Z"
     }
   ],
   "jobItems": [
@@ -116,6 +125,26 @@
       "price": 18000,
       "qty": 1,
       "unit": "人",
+      "note": ""
+    },
+    {
+      "id": "mqd83js6iyoc",
+      "jobId": "mqd8263w3ddf",
+      "sortOrder": 0,
+      "name": "草刈り作業",
+      "price": 12000,
+      "qty": 1,
+      "unit": "式",
+      "note": ""
+    },
+    {
+      "id": "mqd85acwdksl",
+      "jobId": "mqd8263w3ddf",
+      "sortOrder": 1,
+      "name": "値引き",
+      "price": -5000,
+      "qty": 1,
+      "unit": "式",
       "note": ""
     }
   ],
@@ -220,6 +249,25 @@
       "quoteNumber": "S-2026-003",
       "subject": "残存物撤去作業",
       "expireDate": "2026-05-08",
+      "taxRate": 0.1,
+      "honorific": "様",
+      "note": ""
+    },
+    {
+      "id": "mqd83upshpmz",
+      "jobId": "mqd8263w3ddf",
+      "docType": "invoice",
+      "status": "draft",
+      "createdAt": "2026-06-14T03:27:07.840Z",
+      "updatedAt": "2026-06-14T03:27:07.840Z",
+      "pdfPath": null,
+      "pdfSavedAt": null,
+      "issueDate": "2026-06-14",
+      "taxiRemark": "",
+      "discount": 0,
+      "quoteNumber": "S-2026-004",
+      "subject": "草刈り作業",
+      "expireDate": "2026-07-14",
       "taxRate": 0.1,
       "honorific": "様",
       "note": ""
@@ -354,6 +402,16 @@
       "price": 18000,
       "qty": 1,
       "unit": "人",
+      "note": ""
+    },
+    {
+      "id": "mqd83ups07jp",
+      "documentId": "mqd83upshpmz",
+      "sortOrder": 0,
+      "name": "草刈り作業",
+      "price": 12000,
+      "qty": 1,
+      "unit": "式",
       "note": ""
     }
   ],

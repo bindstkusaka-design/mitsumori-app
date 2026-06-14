@@ -76,7 +76,7 @@ export function mergeWithDefaults(stored: Partial<PersistedState>): PersistedSta
 // ── Store interface ────────────────────────────────────────────
 interface AppStore extends PersistedState {
   createJob(params: Pick<Job, 'name' | 'client' | 'contactPerson'>): Job
-  updateJob(id: string, params: Partial<Pick<Job, 'name' | 'client' | 'contactPerson'>>): void
+  updateJob(id: string, params: Partial<Pick<Job, 'name' | 'client' | 'contactPerson' | 'discount'>>): void
   deleteJob(id: string): void
   getJob(id: string): Job | undefined
   getJobItems(jobId: string): JobItem[]
@@ -92,6 +92,7 @@ interface AppStore extends PersistedState {
     honorific: Honorific
     note: string
     taxiRemark?: string
+    discount?: number
     sourceItems?: Omit<DocumentItem, 'id' | 'documentId'>[]
   }): Document
   finalizeDocument(id: string): void
@@ -172,7 +173,7 @@ export const useStore = create<AppStore>()(
     },
 
     createDocument(jobId, params) {
-      const { docType, sourceItems, taxiRemark, ...rest } = params
+      const { docType, sourceItems, taxiRemark, discount, ...rest } = params
       const baseItems = sourceItems ?? get().getJobItems(jobId).map((ji, idx) => ({
         sortOrder: idx, name: ji.name, price: ji.price,
         qty: ji.qty, unit: ji.unit, note: ji.note,
@@ -185,6 +186,7 @@ export const useStore = create<AppStore>()(
         pdfPath: null, pdfSavedAt: null,
         issueDate: todayISO(),
         taxiRemark: taxiRemark ?? '',
+        discount: discount ?? 0,
         ...rest,
       }
       const docItems: DocumentItem[] = baseItems.map((item, idx) => ({

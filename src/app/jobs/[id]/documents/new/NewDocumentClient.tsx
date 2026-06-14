@@ -38,6 +38,7 @@ export default function NewDocumentClient({ jobId }: { jobId: string }) {
   const [honorific, setHonorific] = useState<Honorific>('様')
   const [note, setNote] = useState('')
   const [taxiRemark, setTaxiRemark] = useState('')
+  const [discount, setDiscount] = useState(String(job?.discount ?? 0))
 
   const { subtotal, tax, total } = calcTotals(items, taxRate)
 
@@ -59,6 +60,7 @@ export default function NewDocumentClient({ jobId }: { jobId: string }) {
       honorific,
       note: note.trim(),
       taxiRemark: taxiRemark.trim(),
+      discount: parseFloat(discount) || 0,
     })
     const labels: Record<DocumentType, string> = { quote: '見積書', invoice: '請求書', receipt: '領収書' }
     showToast(`${labels[docType]}を作成しました`, 'success')
@@ -239,6 +241,10 @@ export default function NewDocumentClient({ jobId }: { jobId: string }) {
                 ))}
               </div>
             )}
+          </FormGroup>
+
+          <FormGroup label="値引き（円）">
+            <Input type="number" value={discount} onChange={e => setDiscount(e.target.value)} placeholder="0" className="text-right" />
           </FormGroup>
         </Card>
 

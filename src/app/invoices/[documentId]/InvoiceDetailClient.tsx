@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { CheckCircle, Download, Printer, Trash2, RefreshCw } from 'lucide-react'
-import { useStore } from '@/lib/store'
+import { useStore, getNextDocNo } from '@/lib/store'
 import { calcTotals, fmtDate } from '@/lib/utils'
 import { loadSeal } from '@/lib/seal-storage'
 import {
@@ -16,7 +16,7 @@ import DocShareButtons from '@/components/DocShareButtons'
 
 export default function InvoiceDetailClient({ documentId }: { documentId: string }) {
   const router = useRouter()
-  const { getDocument, getDocumentItems, getJob, finalizeDocument, deleteDocument, savePdf, settings } = useStore()
+  const { getDocument, getDocumentItems, getJob, finalizeDocument, deleteDocument, savePdf, createDocument, settings } = useStore()
   const [saving, setSaving] = useState(false)
   const [sealDataUrl, setSealDataUrl] = useState<string | null>(null)
   const printRef = useRef<HTMLDivElement>(null)
@@ -77,6 +77,27 @@ export default function InvoiceDetailClient({ documentId }: { documentId: string
     else router.push('/')
   }
 
+  function handleCopy() {
+    if (!doc) return
+    const sourceItems = items.map((item, idx) => ({
+      sortOrder: idx, name: item.name, price: item.price,
+      qty: item.qty, unit: item.unit, note: item.note,
+    }))
+    const newDoc = createDocument(doc.jobId, {
+      docType: 'invoice',
+      quoteNumber: getNextDocNo('invoice'),
+      subject: doc.subject,
+      expireDate: doc.expireDate,
+      taxRate: doc.taxRate,
+      honorific: doc.honorific ?? '御中',
+      note: doc.note,
+      discount: doc.discount,
+      sourceItems,
+    })
+    showToast('請求書をコピーしました', 'success')
+    router.push(`/invoices/${newDoc.id}`)
+  }
+
   if (!doc) {
     return (
       <>
@@ -90,6 +111,10 @@ export default function InvoiceDetailClient({ documentId }: { documentId: string
   }
 
   const { subtotal, tax, total } = calcTotals(items, doc.taxRate)
+  const discountAmt = doc.discount ?? 0
+  const discountedSubtotal = Math.max(0, subtotal - discountAmt)
+  const discountedTax = Math.round(discountedSubtotal * doc.taxRate)
+  const discountedTotal = discountedSubtotal + discountedTax
   const isFinalized = doc.status === 'finalized'
   const p = settings.profile
   const ROWS_PAGE1 = 15
@@ -189,7 +214,7 @@ export default function InvoiceDetailClient({ documentId }: { documentId: string
                         ))}
                         <div style={{ display: 'flex', alignItems: 'baseline', borderBottom: '1px solid #ccc', padding: '5px 0 3px', fontSize: 11 }}>
                           <span style={{ width: 88, flexShrink: 0, color: '#555' }}>御請求金額（税込）</span>
-                          <span style={{ flex: 1, textAlign: 'right', fontWeight: 700, fontSize: 14 }}>{fmtYen(total)}</span>
+                          <span style={{ flex: 1, textAlign: 'right', fontWeight: 700, fontSize: 14 }}>{fmtYen(discountedTotal)}</span>
                         </div>
                       </div>
                       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'flex-start', gap: 8, overflow: 'hidden' }}>
@@ -260,20 +285,32 @@ export default function InvoiceDetailClient({ documentId }: { documentId: string
                       </colgroup>
                       <tbody>
                         <tr>
-                          <td rowSpan={3} style={{ border: '1px solid #ddd', padding: '6px 8px', verticalAlign: 'top' }}>
+                          <td rowSpan={discountAmt > 0 ? 5 : 3} style={{ border: '1px solid #ddd', padding: '6px 8px', verticalAlign: 'top' }}>
                             <div style={{ fontWeight: 600, marginBottom: 4, fontSize: 11 }}>備考</div>
                             <div style={{ whiteSpace: 'pre-wrap', color: '#333', minHeight: 52, fontSize: 11 }}>{doc.note}</div>
                           </td>
-                          <td style={{ border: '1px solid #ddd', padding: '5px 8px', color: '#555' }}>合計</td>
-                          <td style={{ border: '1px solid #ddd', padding: '5px 8px', textAlign: 'right' }}>{fmtYen(total)}</td>
+                          <td style={{ border: '1px solid #ddd', padding: '5px 8px', color: '#555' }}>小計</td>
+                          <td style={{ border: '1px solid #ddd', padding: '5px 8px', textAlign: 'right' }}>{fmtYen(subtotal)}</td>
+                        </tr>
+                        {discountAmt > 0 && (
+                          <>
+                            <tr>
+                              <td style={{ border: '1px solid #ddd', padding: '5px 8px', color: '#e53935' }}>値引き</td>
+                              <td style={{ border: '1px solid #ddd', padding: '5px 8px', textAlign: 'right', color: '#e53935' }}>-{fmtYen(discountAmt)}</td>
+                            </tr>
+                            <tr>
+                              <td style={{ border: '1px solid #ddd', padding: '5px 8px', color: '#555' }}>小計（値引後）</td>
+                              <td style={{ border: '1px solid #ddd', padding: '5px 8px', textAlign: 'right' }}>{fmtYen(discountedSubtotal)}</td>
+                            </tr>
+                          </>
+                        )}
+                        <tr>
+                          <td style={{ border: '1px solid #ddd', padding: '5px 6px', color: '#555', fontSize: 10 }}>消費税（{doc.taxRate === 0 ? '0' : doc.taxRate === 0.08 ? '8' : '10'}%）</td>
+                          <td style={{ border: '1px solid #ddd', padding: '5px 8px', textAlign: 'right' }}>{fmtYen(discountedTax)}</td>
                         </tr>
                         <tr>
-                          <td style={{ border: '1px solid #ddd', padding: '5px 6px', color: '#555', fontSize: 10 }}>（税込合計）10%対象</td>
-                          <td style={{ border: '1px solid #ddd', padding: '5px 8px', textAlign: 'right' }}>{doc.taxRate === 0.10 ? fmtYen(tax) : '0円'}</td>
-                        </tr>
-                        <tr>
-                          <td style={{ border: '1px solid #ddd', padding: '5px 6px', color: '#555', fontSize: 10 }}>（税込合計）8%対象</td>
-                          <td style={{ border: '1px solid #ddd', padding: '5px 8px', textAlign: 'right' }}>{doc.taxRate === 0.08 ? fmtYen(tax) : '0円'}</td>
+                          <td style={{ border: '1px solid #ddd', padding: '5px 8px', color: '#111', fontWeight: 700 }}>合計（税込）</td>
+                          <td style={{ border: '1px solid #ddd', padding: '5px 8px', textAlign: 'right', fontWeight: 700 }}>{fmtYen(discountedTotal)}</td>
                         </tr>
                       </tbody>
                     </table>
@@ -332,6 +369,10 @@ export default function InvoiceDetailClient({ documentId }: { documentId: string
             subject={`御請求書 No.${doc.quoteNumber} - ${doc.subject}`}
             bodyText={`${job?.client ?? ''}様\n\n御請求書をお送りします。\n件名: ${doc.subject}\nNo: ${doc.quoteNumber}`}
           />
+          <Divider />
+          <Button variant="outline" size="md" onClick={handleCopy}>
+            📋 コピーして新規作成（請求書）
+          </Button>
           {!isFinalized && (
             <>
               <Divider />
