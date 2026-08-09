@@ -28,7 +28,7 @@ export default function JobDetailClient({ jobId }: Props) {
   const router = useRouter()
   const {
     getJob, getJobItems, addJobItem, updateJobItem, removeJobItem, deleteJob, updateJob,
-    getDocumentsByJob, getDocumentItems, deleteDocument, products,
+    getDocumentsByJob, getDocumentItems, deleteDocument, products, markJobPaid,
   } = useStore()
 
   const job = getJob(jobId)
@@ -159,6 +159,29 @@ export default function JobDetailClient({ jobId }: Props) {
     showToast('案件を削除しました')
   }
 
+  function handleFinishJob() {
+    if (!job) return
+    if (job.status === 'archived') {
+      showToast('この案件はすでに終了しています', 'default')
+      return
+    }
+    if (!confirm('この案件を終了（入金済み）にしますか？')) return
+    markJobPaid(jobId)
+    showToast('案件を終了しました', 'success')
+    router.push('/')
+  }
+
+  function handleMarkPaid() {
+    if (!job) return
+    if (job.status === 'archived') {
+      showToast('この案件はすでに入金済みです', 'default')
+      return
+    }
+    if (!confirm('入金処理をしますか？この案件は終了欄に移動します。')) return
+    markJobPaid(jobId)
+    showToast('入金処理をしました', 'success')
+  }
+
   if (!job) {
     return (
       <>
@@ -196,6 +219,11 @@ export default function JobDetailClient({ jobId }: Props) {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div style={{ flex: 1, minWidth: 0 }}>
               <h1 style={{ fontSize: 16, fontWeight: 700, color: '#1a6bb5', marginBottom: 2 }}>{job.name}</h1>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                <span style={{ padding: '4px 8px', borderRadius: 999, fontSize: 11, color: '#fff', backgroundColor: job.status === 'archived' ? '#2e7d32' : '#1a6bb5' }}>
+                  {job.status === 'archived' ? '入金済み' : '作業中'}
+                </span>
+              </div>
               {editingClient ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
                   <input
@@ -522,7 +550,7 @@ export default function JobDetailClient({ jobId }: Props) {
           padding: '10px 0 14px',
         }}>
           <button
-            onClick={() => router.push('/')}
+            onClick={handleFinishJob}
             style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, background: 'none', border: 'none', cursor: 'pointer' }}
           >
             <span style={{ fontSize: 22 }}>✓</span>
@@ -536,11 +564,17 @@ export default function JobDetailClient({ jobId }: Props) {
             <span style={{ color: '#fff', fontSize: 11 }}>プレビュー</span>
           </button>
           <button
-            onClick={() => {}}
-            style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3, background: 'none', border: 'none', cursor: 'pointer' }}
+            type="button"
+            onClick={handleMarkPaid}
+            disabled={job.status === 'archived'}
+            style={{
+              display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+              background: 'none', border: 'none', cursor: job.status === 'archived' ? 'not-allowed' : 'pointer',
+              opacity: job.status === 'archived' ? 0.5 : 1,
+            }}
           >
-            <span style={{ fontSize: 20 }}>💰</span>
-            <span style={{ color: '#fff', fontSize: 11 }}>入金</span>
+            <span style={{ fontSize: 20 }}>{job.status === 'archived' ? '✅' : '💰'}</span>
+            <span style={{ color: '#fff', fontSize: 11 }}>{job.status === 'archived' ? '入金済み' : '入金'}</span>
           </button>
           <Link href={`/jobs/${jobId}/documents/new`}>
             <button
