@@ -12,7 +12,7 @@ import TopNav from '@/components/layout/TopNav'
 import BottomTab from '@/components/layout/BottomTab'
 
 export default function SettingsClient() {
-  const { settings, updateSettings } = useStore()
+  const { settings, updateSettings, jobs, jobItems, documents, documentItems, products } = useStore()
   const p = settings.profile
 
   // 発行者フォーム
@@ -103,6 +103,40 @@ export default function SettingsClient() {
     if (!confirm('すべてのデータを削除しますか？\nこの操作は元に戻せません。')) return
     localStorage.clear()
     window.location.reload()
+  }
+
+  function createBackupData() {
+    const data = {
+      meta: {
+        generatedAt: new Date().toISOString(),
+        app: 'mitsumori-app',
+        version: '1.0',
+      },
+      settings,
+      jobs,
+      jobItems,
+      documents,
+      documentItems,
+      products,
+    }
+    return data
+  }
+
+  function downloadBackup() {
+    const data = createBackupData()
+    const json = JSON.stringify(data, null, 2)
+    const blob = new Blob([json], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const today = new Date()
+    const filename = `mitsumori-backup-${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}.json`
+    const link = document.createElement('a')
+    link.href = url
+    link.download = filename
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+    showToast('バックアップファイルをダウンロードしました', 'success')
   }
 
   return (
@@ -273,6 +307,23 @@ export default function SettingsClient() {
         </Button>
 
         <Divider />
+
+        {/* バックアップ */}
+        <Card className="p-4 bg-slate-50 border-slate-200 mt-4">
+          <div className="flex items-center gap-2 mb-2">
+            <Save size={16} className="text-slate-700" />
+            <p className="font-bold text-sm text-slate-900">データを書き出す</p>
+          </div>
+          <p className="text-xs text-slate-600 mb-3 leading-relaxed">
+            localStorage に保存されている全データ（会社情報、案件、明細、書類、商品など）を JSON ファイルとしてダウンロードします。
+          </p>
+          <Button variant="primary" size="sm" onClick={downloadBackup}>
+            JSON ファイルをダウンロード
+          </Button>
+          <p className="text-xs text-ink-muted mt-3">
+            ダウンロードしたファイルは Google Drive などに保存してください。
+          </p>
+        </Card>
 
         {/* 危険ゾーン */}
         <Card className="p-4 bg-amber-50 border-amber-200 mt-4">
