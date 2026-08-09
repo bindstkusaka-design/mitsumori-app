@@ -18,6 +18,7 @@ export interface Job {
   contactPerson: string
   status: JobStatus
   discount?: number
+  paidAt?: string
   createdAt: string
   updatedAt: string
 }

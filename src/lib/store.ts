@@ -97,6 +97,8 @@ interface AppStore extends PersistedState {
   }): Document
   finalizeDocument(id: string): void
   deleteDocument(id: string): void
+  duplicateJob(id: string): Job | undefined
+  markJobPaid(id: string): void
   getDocument(id: string): Document | undefined
   getDocumentsByJob(jobId: string): Document[]
   getDocumentItems(documentId: string): DocumentItem[]
@@ -206,6 +208,43 @@ export const useStore = create<AppStore>()(
       set(s => ({
         documents: s.documents.map(d =>
           d.id === id ? { ...d, status: 'finalized', updatedAt: new Date().toISOString() } : d,
+        ),
+      }))
+      get()._persist()
+    },
+
+    duplicateJob(id) {
+      const job = get().getJob(id)
+      if (!job) return undefined
+      const items = get().getJobItems(id)
+      const newJob: Job = {
+        id: genId(),
+        name: job.name,
+        client: job.client,
+        contactPerson: job.contactPerson,
+        status: 'active',
+        discount: job.discount,
+        paidAt: undefined,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+      const duplicatedItems = items.map(item => ({
+        ...item,
+        id: genId(),
+        jobId: newJob.id,
+      }))
+      set(s => ({
+        jobs: [...s.jobs, newJob],
+        jobItems: [...s.jobItems, ...duplicatedItems],
+      }))
+      get()._persist()
+      return newJob
+    },
+
+    markJobPaid(id) {
+      set(s => ({
+        jobs: s.jobs.map(j =>
+          j.id === id ? { ...j, status: 'archived', paidAt: todayISO(), updatedAt: new Date().toISOString() } : j,
         ),
       }))
       get()._persist()

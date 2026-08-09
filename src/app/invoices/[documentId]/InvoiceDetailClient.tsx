@@ -16,7 +16,7 @@ import DocShareButtons from '@/components/DocShareButtons'
 
 export default function InvoiceDetailClient({ documentId }: { documentId: string }) {
   const router = useRouter()
-  const { getDocument, getDocumentItems, getJob, finalizeDocument, deleteDocument, savePdf, createDocument, settings } = useStore()
+  const { getDocument, getDocumentItems, getJob, finalizeDocument, deleteDocument, savePdf, createDocument, markJobPaid, settings } = useStore()
   const [saving, setSaving] = useState(false)
   const [sealDataUrl, setSealDataUrl] = useState<string | null>(null)
   const printRef = useRef<HTMLDivElement>(null)
@@ -31,6 +31,14 @@ export default function InvoiceDetailClient({ documentId }: { documentId: string
     if (!confirm('請求書を確定しますか？\n確定後は内容を変更できません。')) return
     finalizeDocument(documentId)
     showToast('請求書を確定しました', 'success')
+  }
+
+  function handleMarkPaid() {
+    if (!doc || !job) return
+    if (!confirm('入金処理を完了し、この案件を終了リストへ移動しますか？')) return
+    markJobPaid(job.id)
+    showToast('案件を終了リストに移動しました', 'success')
+    router.push(`/jobs/${job.id}`)
   }
 
   async function handleSavePdf() {
@@ -116,6 +124,8 @@ export default function InvoiceDetailClient({ documentId }: { documentId: string
   const discountedTax = Math.round(discountedSubtotal * doc.taxRate)
   const discountedTotal = discountedSubtotal + discountedTax
   const isFinalized = doc.status === 'finalized'
+  const isInvoice = doc.docType === 'invoice'
+  const isJobArchived = job?.status === 'archived'
   const p = settings.profile
   const ROWS_PAGE1 = 15
   const ROWS_PER_PAGE = 25
@@ -338,6 +348,11 @@ export default function InvoiceDetailClient({ documentId }: { documentId: string
           {!isFinalized && (
             <Button variant="primary" size="lg" onClick={handleFinalize}>
               <CheckCircle size={17} /> この請求書を確定する
+            </Button>
+          )}
+          {isFinalized && isInvoice && !isJobArchived && (
+            <Button variant="secondary" size="lg" onClick={handleMarkPaid}>
+              <CheckCircle size={17} /> 入金済みにする
             </Button>
           )}
           {isFinalized && !doc.pdfPath && (

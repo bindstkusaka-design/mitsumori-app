@@ -28,7 +28,7 @@ export default function JobDetailClient({ jobId }: Props) {
   const router = useRouter()
   const {
     getJob, getJobItems, addJobItem, updateJobItem, removeJobItem, deleteJob, updateJob,
-    getDocumentsByJob, getDocumentItems, products,
+    getDocumentsByJob, getDocumentItems, deleteDocument, products,
   } = useStore()
 
   const job = getJob(jobId)
@@ -423,12 +423,11 @@ export default function JobDetailClient({ jobId }: Props) {
               const typeLabel: Record<DocumentType, string> = { quote: '見積書', invoice: '請求書', receipt: '領収書' }
               const typeColor: Record<DocumentType, string> = { quote: '#1a6bb5', invoice: '#c0392b', receipt: '#7b3fa0' }
               return (
-                <Link key={doc.id} href={docDetailPath(doc)}>
-                  <div style={{
-                    padding: '10px 16px',
-                    borderBottom: '1px solid #eee',
-                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
-                  }}>
+                <div key={doc.id} style={{
+                  display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                  padding: '10px 16px', borderBottom: '1px solid #eee', backgroundColor: '#fff',
+                }}>
+                  <Link href={docDetailPath(doc)} className="flex-1">
                     <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                       <span style={{
                         fontSize: 11, fontWeight: 700,
@@ -440,20 +439,36 @@ export default function JobDetailClient({ jobId }: Props) {
                       </span>
                       <span style={{ fontSize: 13, color: '#333' }}>No. {doc.quoteNumber || '-'}</span>
                     </div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                      <span style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>
-                        {docTotal.toLocaleString('ja-JP')}円
-                      </span>
-                      <span style={{
-                        fontSize: 11, padding: '2px 6px', borderRadius: 4,
-                        backgroundColor: doc.status === 'finalized' ? '#e8f5e9' : '#fff8e1',
-                        color: doc.status === 'finalized' ? '#2e7d32' : '#f57f17',
-                      }}>
-                        {doc.status === 'finalized' ? '確定済' : '下書き'}
-                      </span>
-                    </div>
+                  </Link>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                    <span style={{ fontSize: 13, fontWeight: 600, color: '#111' }}>
+                      {docTotal.toLocaleString('ja-JP')}円
+                    </span>
+                    <span style={{
+                      fontSize: 11, padding: '2px 6px', borderRadius: 4,
+                      backgroundColor: doc.status === 'finalized' ? '#e8f5e9' : '#fff8e1',
+                      color: doc.status === 'finalized' ? '#2e7d32' : '#f57f17',
+                    }}>
+                      {doc.status === 'finalized' ? '確定済' : '下書き'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={(event) => {
+                        event.preventDefault()
+                        event.stopPropagation()
+                        if (!confirm('この書類を削除しますか？')) return
+                        deleteDocument(doc.id)
+                        showToast('書類を削除しました', 'success')
+                      }}
+                      style={{
+                        background: 'none', border: 'none', color: '#e53935', cursor: 'pointer', padding: 4,
+                      }}
+                      aria-label="書類を削除"
+                    >
+                      <Trash2 size={16} />
+                    </button>
                   </div>
-                </Link>
+                </div>
               )
             })}
           </div>
