@@ -24,7 +24,7 @@ const DOC_CONFIG = {
 
 export default function NewDocumentClient({ jobId }: { jobId: string }) {
   const router = useRouter()
-  const { getJob, getJobItems, createDocument, settings } = useStore()
+  const { getJob, getJobItems, createDocument, settings, getCustomer } = useStore()
   const job = getJob(jobId)
   const items = getJobItems(jobId)
 
@@ -39,37 +39,49 @@ export default function NewDocumentClient({ jobId }: { jobId: string }) {
   const [note, setNote] = useState('')
   const [taxiRemark, setTaxiRemark] = useState('')
   const [discount, setDiscount] = useState(String(job?.discount ?? 0))
+  const [saving, setSaving] = useState(false)
 
   const { subtotal, tax, total } = calcTotals(items, taxRate)
 
-  function handleSelectType(type: DocumentType) {
+  async function handleSelectType(type: DocumentType) {
     setDocType(type)
-    setDocNumber(getNextDocNo(type))
     setStep('form')
+    try {
+      setDocNumber(await getNextDocNo(type))
+    } catch {
+      showToast('採番の取得に失敗しました', 'error')
+    }
   }
 
-  function handleCreate() {
+  async function handleCreate() {
     if (!subject.trim()) { showToast('件名を入力してください', 'error'); return }
     if (items.length === 0) { showToast('明細が0件です。案件に明細を追加してください', 'error'); return }
-    const doc = createDocument(jobId, {
-      docType,
-      quoteNumber: docNumber.trim(),
-      subject: subject.trim(),
-      expireDate,
-      taxRate,
-      honorific,
-      note: note.trim(),
-      taxiRemark: taxiRemark.trim(),
-      discount: parseFloat(discount) || 0,
-    })
-    const labels: Record<DocumentType, string> = { quote: '見積書', invoice: '請求書', receipt: '領収書' }
-    showToast(`${labels[docType]}を作成しました`, 'success')
-    const paths: Record<DocumentType, string> = {
-      quote: `/quotes/${doc.id}`,
-      invoice: `/invoices/${doc.id}`,
-      receipt: `/receipts/${doc.id}`,
+    setSaving(true)
+    try {
+      const doc = await createDocument(jobId, {
+        docType,
+        docNumber: docNumber.trim(),
+        subject: subject.trim(),
+        expireDate,
+        taxRate,
+        honorific,
+        note: note.trim(),
+        taxiRemark: taxiRemark.trim(),
+        discount: parseFloat(discount) || 0,
+      })
+      const labels: Record<DocumentType, string> = { quote: '見積書', invoice: '請求書', receipt: '領収書' }
+      showToast(`${labels[docType]}を作成しました`, 'success')
+      const paths: Record<DocumentType, string> = {
+        quote: `/quotes/${doc.id}`,
+        invoice: `/invoices/${doc.id}`,
+        receipt: `/receipts/${doc.id}`,
+      }
+      router.push(paths[docType])
+    } catch {
+      showToast('作成に失敗しました（発行番号が重複している可能性があります）', 'error')
+    } finally {
+      setSaving(false)
     }
-    router.push(paths[docType])
   }
 
   if (!job) {
@@ -179,7 +191,9 @@ export default function NewDocumentClient({ jobId }: { jobId: string }) {
         <Card className="p-3 mb-4 bg-surface-2 border-border">
           <p className="text-xs text-ink-muted">案件</p>
           <p className="font-semibold text-sm">{job.name}</p>
-          {job.client && <p className="text-xs text-ink-muted mt-0.5">👤 {job.client}</p>}
+          {getCustomer(job.customerId)?.name && (
+            <p className="text-xs text-ink-muted mt-0.5">👤 {getCustomer(job.customerId)?.name}</p>
+          )}
         </Card>
 
         <Card className="p-4 mb-4">
@@ -267,8 +281,8 @@ export default function NewDocumentClient({ jobId }: { jobId: string }) {
           )}
         </Card>
 
-        <Button variant="primary" size="lg" onClick={handleCreate} style={{ backgroundColor: cfg.color }}>
-          {cfg.label}を作成する
+        <Button variant="primary" size="lg" onClick={handleCreate} disabled={saving} style={{ backgroundColor: cfg.color }}>
+          {saving ? '作成中…' : `${cfg.label}を作成する`}
         </Button>
       </main>
       <ToastProvider />

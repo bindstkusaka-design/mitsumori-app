@@ -1,8 +1,8 @@
 'use client'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { useStore, getNextQuoteNo } from '@/lib/store'
+import { useStore, getNextDocNo } from '@/lib/store'
 import { expireISO } from '@/lib/utils'
 import { calcTotals, fmtMoney, fmtDate } from '@/lib/utils'
 import {
@@ -16,33 +16,45 @@ import type { TaxRate, Honorific } from '@/types'
 
 export default function NewQuoteClient({ jobId }: { jobId: string }) {
   const router = useRouter()
-  const { getJob, getJobItems, createDocument, settings } = useStore()
+  const { getJob, getJobItems, createDocument, settings, getCustomer } = useStore()
   const job = getJob(jobId)
   const items = getJobItems(jobId)
 
   const [subject, setSubject] = useState(job?.name ?? '')
-  const [quoteNumber, setQuoteNumber] = useState(getNextQuoteNo())
+  const [quoteNumber, setQuoteNumber] = useState('')
   const [expireDate, setExpireDate] = useState(expireISO())
   const [taxRate, setTaxRate] = useState<TaxRate>(0.10)
   const [honorific, setHonorific] = useState<Honorific>('様')
   const [note, setNote] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    getNextDocNo('quote').then(setQuoteNumber).catch(() => showToast('採番の取得に失敗しました', 'error'))
+  }, [])
 
   const { subtotal, tax, total } = calcTotals(items, taxRate)
 
-  function handleCreate() {
+  async function handleCreate() {
     if (!subject.trim()) { showToast('件名を入力してください', 'error'); return }
     if (items.length === 0) { showToast('明細が0件です。案件に明細を追加してください', 'error'); return }
-    const doc = createDocument(jobId, {
-      docType: 'quote',
-      quoteNumber: quoteNumber.trim(),
-      subject: subject.trim(),
-      expireDate,
-      taxRate,
-      honorific,
-      note: note.trim(),
-    })
-    showToast('見積書を作成しました', 'success')
-    router.push(`/quotes/${doc.id}`)
+    setSaving(true)
+    try {
+      const doc = await createDocument(jobId, {
+        docType: 'quote',
+        docNumber: quoteNumber.trim(),
+        subject: subject.trim(),
+        expireDate,
+        taxRate,
+        honorific,
+        note: note.trim(),
+      })
+      showToast('見積書を作成しました', 'success')
+      router.push(`/quotes/${doc.id}`)
+    } catch {
+      showToast('作成に失敗しました（発行番号が重複している可能性があります）', 'error')
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (!job) {
@@ -61,7 +73,9 @@ export default function NewQuoteClient({ jobId }: { jobId: string }) {
         <Card className="p-3 mb-5 bg-surface-2 border-border">
           <p className="text-xs text-ink-muted">案件</p>
           <p className="font-semibold text-sm">{job.name}</p>
-          {job.client && <p className="text-xs text-ink-muted mt-0.5">👤 {job.client}</p>}
+          {getCustomer(job.customerId)?.name && (
+            <p className="text-xs text-ink-muted mt-0.5">👤 {getCustomer(job.customerId)?.name}</p>
+          )}
         </Card>
 
         {/* フォーム */}
@@ -150,8 +164,8 @@ export default function NewQuoteClient({ jobId }: { jobId: string }) {
           )}
         </Card>
 
-        <Button variant="primary" size="lg" onClick={handleCreate}>
-          見積書を作成する
+        <Button variant="primary" size="lg" onClick={handleCreate} disabled={saving}>
+          {saving ? '作成中…' : '見積書を作成する'}
         </Button>
       </main>
 

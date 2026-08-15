@@ -1,40 +1,46 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
-import { useStore, mergeWithDefaults } from '@/lib/store'
-import { loadFromCloud, loadStorage } from '@/lib/storage'
-
-interface PersistedState {
-  jobs: unknown[]
-  jobItems: unknown[]
-  documents: unknown[]
-  documentItems: unknown[]
-  products: unknown[]
-  settings: unknown
-}
+import { useStore } from '@/lib/store'
 
 /**
- * アプリ起動時にクラウドからデータを読み込み、ストアに反映する。
- * 読み込み中はローディング画面を表示する。
+ * アプリ起動時に Supabase からデータを読み込み、ストアに反映する。
+ * 読み込み中はローディング画面、失敗時はエラー表示＋再試行ボタンを出す。
  */
 export default function CloudSyncInit({ children }: { children: React.ReactNode }) {
-  const [ready, setReady] = useState(false)
+  const hydrate = useStore(s => s.hydrate)
+  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
 
   useEffect(() => {
-    // localStorage の既存データを fallback として渡す
-    const localFallback = loadStorage<PersistedState | null>(null)
+    setStatus('loading')
+    hydrate()
+      .then(() => setStatus('ready'))
+      .catch(() => setStatus('error'))
+  }, [hydrate])
 
-    loadFromCloud<PersistedState | null>(localFallback).then(data => {
-      if (data) {
-        // DEFAULT_SETTINGS とディープマージして欠損フィールドを補完してからストアに反映
-        const merged = mergeWithDefaults(data as any)
-        useStore.setState(merged)
-      }
-      setReady(true)
-    })
-  }, [])
+  if (status === 'error') {
+    return (
+      <div
+        style={{
+          display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center',
+          height: '100dvh', gap: 12, backgroundColor: '#f8fafc', padding: 24, textAlign: 'center',
+        }}
+      >
+        <p style={{ fontSize: 14, color: '#e53935', margin: 0 }}>データの読み込みに失敗しました</p>
+        <button
+          onClick={() => {
+            setStatus('loading')
+            hydrate().then(() => setStatus('ready')).catch(() => setStatus('error'))
+          }}
+          style={{ padding: '10px 24px', background: '#1a6bb5', color: '#fff', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 14 }}
+        >
+          再試行
+        </button>
+      </div>
+    )
+  }
 
-  if (!ready) {
+  if (status === 'loading') {
     return (
       <div
         style={{

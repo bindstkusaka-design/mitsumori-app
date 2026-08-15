@@ -9,12 +9,26 @@ export type Honorific = '様' | '御中'
 export type DocumentType = 'quote' | 'invoice' | 'receipt'
 
 // ----------------------------------------------------------------
+// Customer (顧客マスタ)
+// ----------------------------------------------------------------
+export interface Customer {
+  id: string
+  name: string
+  tel: string
+  address: string
+  email: string
+  googleMapUrl: string
+  createdAt: string
+  updatedAt: string
+}
+
+// ----------------------------------------------------------------
 // Job (案件)
 // ----------------------------------------------------------------
 export interface Job {
   id: string
   name: string
-  client: string
+  customerId: string
   contactPerson: string
   status: JobStatus
   discount?: number
@@ -56,7 +70,8 @@ export interface Document {
   id: string
   jobId: string
   docType: DocumentType   // 'quote' | 'invoice' | 'receipt' (旧データは未設定→'quote'扱い)
-  quoteNumber: string     // 発行番号 Q-/S-/R- prefix
+  docNumber: string       // 発行番号 Q-/S-/R- prefix
+  sourceDocumentId?: string | null  // 「この書類から作成」した場合の元書類ID
   subject: string
   issueDate: string
   expireDate: string      // 有効期限(quote) / お支払期限(invoice) / 領収書では未使用
@@ -96,7 +111,6 @@ export interface SettingsProfile {
   address: string
   tel: string
   email: string
-  bankInfo: string        // 旧フィールド (後方互換)
   invoiceNumber: string   // インボイス登録番号
   // 振込先 (構造化)
   bankName: string
@@ -104,6 +118,7 @@ export interface SettingsProfile {
   bankAccountType: string
   bankAccountNumber: string
   bankAccountHolder: string
+  sealImagePath: string | null
 }
 
 export interface Settings {

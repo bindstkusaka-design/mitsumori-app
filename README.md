@@ -11,49 +11,50 @@ npm run dev
 
 ブラウザで http://localhost:3000 を開いてください。
 
+`.env.local` に Supabase の URL / Anon Key が必要です（`.env.local.example` 参照）。
+
 ## 技術スタック
 
 - **Next.js 14** (App Router)
 - **TypeScript**
 - **Tailwind CSS** (カスタムカラートークン)
-- **Zustand** (状態管理 + LocalStorage永続化)
+- **Zustand** (状態管理)
+- **Supabase** (Postgres + Storage)
 - **Lucide React** (アイコン)
 
 ## 機能
 
 | 機能 | 説明 |
 |---|---|
-| 案件管理 | 案件の作成・編集・削除 |
+| 顧客管理 | 顧客の作成・編集・削除 |
+| 案件管理 | 案件の作成・編集・削除、顧客の選択 |
 | 明細編集 | 品名・単価・数量・単位・備考 |
 | 商品マスタ | よく使う商品を登録、明細入力時にサジェスト |
-| 見積書作成 | 件名・見積番号・有効期限・消費税率・備考 |
+| 見積書作成 | 件名・発行番号（Supabase RPCで自動採番）・有効期限・消費税率・備考 |
 | 見積書確定 | draft → finalized へ遷移（確定後は変更不可） |
 | 帳票プレビュー | 見積書の印刷プレビュー（ブラウザ印刷 → PDF保存） |
-| PDF保存 | pdf-asset-service 経由で保存（模擬 / Supabase差し替え対応） |
-| PDF一覧 | 保存済み PDF 一覧・欠損時の再生成導線 |
-| 設定 | 発行者情報・件名テンプレート・備考テンプレート |
+| PDF保存 | html2pdf.js で生成した実PDFを Supabase Storage (pdf-assets) に保存 |
+| PDF一覧 | 保存済み PDF 一覧・欠損時の再作成導線 |
+| 設定 | 発行者情報・件名テンプレート・備考テンプレート・角印画像（Supabase Storage） |
 
 ## データ保存
 
-- フロントのみ動作モード: **LocalStorage** に保存
-- Supabase 連携: `src/lib/pdf-asset-service.ts` と `src/app/api/pdf-assets/[...pdfPath]/route.ts` を修正
+すべてのデータ（顧客・案件・明細・書類・商品・設定）は Supabase の Postgres テーブルに保存されます。角印画像と保存済みPDFは Supabase Storage（`company-assets` / `pdf-assets` バケット）に保存されます。
+
+スキーマは `supabase/migrations/` 配下の SQL で管理しています。
 
 ## pdf-asset-service について
 
-引き継ぎ書の設計方針に従い、**PDF の保存・取得・存在確認の境界** を `src/lib/pdf-asset-service.ts` に集約しています。
+**PDF の保存・取得・存在確認の境界** を `src/lib/pdf-asset-service.ts` に集約しています。
 
-- `pdfPath` を唯一の参照キーとして扱う
+- `pdfPath` を唯一の参照キー（`bucket/objectPath` 形式）として扱う
 - UI は `pdfPath` の存在のみを見る
-- 実ファイル取得方法はサービス側に隠蔽
-- Supabase Storage への切り替えはこのファイルだけ修正
+- 実ファイルの取得・アップロード方法はサービス側に隠蔽
 
-## Supabase 連携（将来）
+## 既存データのインポート
 
-1. `src/lib/pdf-asset-service.ts` の TODO を実装
-2. `src/app/api/pdf-assets/[...pdfPath]/route.ts` の TODO を実装
-3. `.env.local` に Supabase URL / Anon Key を設定
+`data/sync.json`（移行前のローカルバックアップ）から Supabase へ一括インポートするスクリプトが `scripts/import-to-supabase.mjs` にあります。空の Supabase プロジェクトに対して一度だけ実行する想定です。
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=xxx
+```bash
+node scripts/import-to-supabase.mjs
 ```

@@ -3,6 +3,7 @@
 import React, { useState } from 'react'
 import { Download, Mail, Share2 } from 'lucide-react'
 import { Button, showToast } from '@/components/ui'
+import { generatePdfBlob } from '@/lib/generate-pdf'
 
 interface DocShareButtonsProps {
   printRef: React.RefObject<HTMLDivElement>
@@ -16,30 +17,7 @@ export default function DocShareButtons({ printRef, fileName, subject, bodyText 
 
   async function buildPdfBlob(): Promise<Blob> {
     if (!printRef.current) throw new Error('printRef未設定')
-    // html2pdf.js は ESM 対応のため動的インポート
-    const html2pdf = (await import('html2pdf.js')).default
-    const element = printRef.current.cloneNode(true) as HTMLElement
-    // ページ区切りの破線を印刷時は非表示にするためスタイル調整
-    element.querySelectorAll<HTMLElement>('.page').forEach((el, i) => {
-      if (i > 0) {
-        el.style.borderTop = 'none'
-        el.style.marginTop = '0'
-      }
-    })
-    const opt = {
-      margin: [22, 20, 22, 20],  // mm: top, left, bottom, right
-      filename: `${fileName}.pdf`,
-      image: { type: 'jpeg', quality: 0.95 },
-      html2canvas: {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: '#ffffff',
-      },
-      jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
-    }
-    const blob: Blob = await html2pdf().set(opt).from(element).outputPdf('blob')
-    return blob
+    return generatePdfBlob(printRef.current, fileName)
   }
 
   // ① ダウンロード

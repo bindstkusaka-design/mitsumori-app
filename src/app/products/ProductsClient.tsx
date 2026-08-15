@@ -32,22 +32,30 @@ export default function ProductsClient() {
     setOpen(true)
   }
 
-  function handleSave() {
+  async function handleSave() {
     if (!name.trim()) { showToast('商品名を入力してください', 'error'); return }
-    if (editing) {
-      updateProduct(editing.id, { name: name.trim(), price: parseFloat(price) || 0, unit: unit || '式', note: note.trim() })
-      showToast('更新しました', 'success')
-    } else {
-      addProduct({ name: name.trim(), price: parseFloat(price) || 0, unit: unit || '式', note: note.trim() })
-      showToast('商品を追加しました', 'success')
+    try {
+      if (editing) {
+        await updateProduct(editing.id, { name: name.trim(), price: parseFloat(price) || 0, unit: unit || '式', note: note.trim() })
+        showToast('更新しました', 'success')
+      } else {
+        await addProduct({ name: name.trim(), price: parseFloat(price) || 0, unit: unit || '式', note: note.trim() })
+        showToast('商品を追加しました', 'success')
+      }
+      setOpen(false)
+    } catch {
+      showToast('保存に失敗しました', 'error')
     }
-    setOpen(false)
   }
 
-  function handleDelete(id: string) {
+  async function handleDelete(id: string) {
     if (!confirm('この商品を削除しますか？')) return
-    deleteProduct(id)
-    showToast('削除しました')
+    try {
+      await deleteProduct(id)
+      showToast('削除しました')
+    } catch {
+      showToast('削除に失敗しました', 'error')
+    }
   }
 
   const sorted = [...products].sort((a, b) =>

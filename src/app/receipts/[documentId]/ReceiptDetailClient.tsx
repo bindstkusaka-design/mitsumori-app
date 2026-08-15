@@ -1,11 +1,13 @@
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { CheckCircle, Download, Printer, Trash2, RefreshCw } from 'lucide-react'
 import { useStore, getNextDocNo } from '@/lib/store'
 import { calcTotals, fmtDate } from '@/lib/utils'
-import { loadSeal } from '@/lib/seal-storage'
+import { getSealUrl } from '@/lib/seal-storage'
+import { getPdfUrl } from '@/lib/pdf-asset-service'
+import { generatePdfBlob } from '@/lib/generate-pdf'
 import {
   Button, Badge, Card, EmptyState, ToastProvider, showToast, Divider,
 } from '@/components/ui'
@@ -16,29 +18,39 @@ import DocShareButtons from '@/components/DocShareButtons'
 
 export default function ReceiptDetailClient({ documentId }: { documentId: string }) {
   const router = useRouter()
-  const { getDocument, getDocumentItems, getJob, finalizeDocument, deleteDocument, savePdf, createDocument, settings } = useStore()
+  const { getDocument, getDocumentItems, getJob, getCustomer, finalizeDocument, deleteDocument, savePdf, createDocument, settings } = useStore()
   const [saving, setSaving] = useState(false)
-  const [sealDataUrl, setSealDataUrl] = useState<string | null>(null)
   const printRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => { setSealDataUrl(loadSeal()) }, [])
+  const sealDataUrl = getSealUrl(settings.profile.sealImagePath)
 
   const doc = getDocument(documentId)
   const items = getDocumentItems(documentId)
   const job = doc ? getJob(doc.jobId) : undefined
+  const customer = job ? getCustomer(job.customerId) : undefined
 
   async function handleFinalize() {
     if (!confirm('領収書を確定しますか？\n確定後は内容を変更できません。')) return
-    finalizeDocument(documentId)
-    showToast('領収書を確定しました', 'success')
+    try {
+      await finalizeDocument(documentId)
+      showToast('領収書を確定しました', 'success')
+    } catch {
+      showToast('確定に失敗しました', 'error')
+    }
   }
 
   async function handleSavePdf() {
+    if (!printRef.current || !doc) return
     setSaving(true)
-    const result = await savePdf(documentId)
-    setSaving(false)
-    if (result.ok) showToast('PDFを保存しました', 'success')
-    else showToast(result.error ?? 'PDF保存に失敗しました', 'error')
+    try {
+      const blob = await generatePdfBlob(printRef.current, `領収書_${customer?.name ?? ''}_${doc.issueDate}`)
+      const result = await savePdf(documentId, blob)
+      if (result.ok) showToast('PDFを保存しました', 'success')
+      else showToast(result.error ?? 'PDF保存に失敗しました', 'error')
+    } catch {
+      showToast('PDF保存に失敗しました', 'error')
+    } finally {
+      setSaving(false)
+    }
   }
 
   function handlePrint() {
@@ -48,7 +60,7 @@ export default function ReceiptDetailClient({ documentId }: { documentId: string
     if (!w) return
     w.document.write(`<!DOCTYPE html><html lang="ja"><head>
       <meta charset="UTF-8">
-      <title>領収書 - ${doc?.quoteNumber ?? ''}</title>
+      <title>領収書 - ${doc?.docNumber ?? ''}</title>
       <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
       <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -68,35 +80,45 @@ export default function ReceiptDetailClient({ documentId }: { documentId: string
     w.document.close()
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!confirm('この領収書を削除しますか？')) return
     const jobId = doc?.jobId
-    deleteDocument(documentId)
-    showToast('削除しました')
-    if (jobId) router.push(`/jobs/${jobId}`)
-    else router.push('/')
+    try {
+      await deleteDocument(documentId)
+      showToast('削除しました')
+      if (jobId) router.push(`/jobs/${jobId}`)
+      else router.push('/')
+    } catch {
+      showToast('削除に失敗しました', 'error')
+    }
   }
 
-  function handleCopy() {
+  async function handleCopy() {
     if (!doc) return
     const sourceItems = items.map((item, idx) => ({
       sortOrder: idx, name: item.name, price: item.price,
       qty: item.qty, unit: item.unit, note: item.note,
     }))
-    const newDoc = createDocument(doc.jobId, {
-      docType: 'receipt',
-      quoteNumber: getNextDocNo('receipt'),
-      subject: doc.subject,
-      expireDate: doc.expireDate,
-      taxRate: doc.taxRate,
-      honorific: doc.honorific ?? '御中',
-      note: doc.note,
-      taxiRemark: doc.taxiRemark,
-      discount: doc.discount,
-      sourceItems,
-    })
-    showToast('領収書をコピーしました', 'success')
-    router.push(`/receipts/${newDoc.id}`)
+    try {
+      const docNumber = await getNextDocNo('receipt')
+      const newDoc = await createDocument(doc.jobId, {
+        docType: 'receipt',
+        docNumber,
+        sourceDocumentId: doc.id,
+        subject: doc.subject,
+        expireDate: doc.expireDate,
+        taxRate: doc.taxRate,
+        honorific: doc.honorific ?? '御中',
+        note: doc.note,
+        taxiRemark: doc.taxiRemark,
+        discount: doc.discount,
+        sourceItems,
+      })
+      showToast('領収書をコピーしました', 'success')
+      router.push(`/receipts/${newDoc.id}`)
+    } catch {
+      showToast('作成に失敗しました', 'error')
+    }
   }
 
   if (!doc) {
@@ -141,14 +163,14 @@ export default function ReceiptDetailClient({ documentId }: { documentId: string
     <>
       <TopNav
         left={<BackButton href={job ? `/jobs/${doc.jobId}` : '/'} />}
-        title={<span className="text-sm font-semibold">領収書 No.{doc.quoteNumber}</span>}
+        title={<span className="text-sm font-semibold">領収書 No.{doc.docNumber}</span>}
       />
       <main className="max-w-xl mx-auto px-4 pt-4 pb-tab">
 
         <Card className={`p-3 mb-4 ${isFinalized ? 'bg-accent-light border-green-200' : 'bg-surface-2'}`}>
           <div className="flex justify-between items-center">
             <div>
-              <p className="font-semibold text-sm">No. {doc.quoteNumber || '-'}</p>
+              <p className="font-semibold text-sm">No. {doc.docNumber || '-'}</p>
               <p className="text-xs text-ink-muted mt-0.5">{doc.subject || '件名未設定'}</p>
             </div>
             <div className="flex items-center gap-2">
@@ -188,9 +210,9 @@ export default function ReceiptDetailClient({ documentId }: { documentId: string
                     {/* 顧客名(左58%) + No.(右) */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                       <div style={{ width: '58%', textAlign: 'right', fontSize: 14, borderBottom: '1px solid #ccc', paddingBottom: 4, marginBottom: 4 }}>
-                        {job?.client}<span style={{ marginLeft: 6 }}>{doc.honorific ?? '御中'}</span>
+                        {customer?.name}<span style={{ marginLeft: 6 }}>{doc.honorific ?? '御中'}</span>
                       </div>
-                      <div style={{ fontSize: 11, color: '#555' }}>No.&nbsp;{doc.quoteNumber || '-'}</div>
+                      <div style={{ fontSize: 11, color: '#555' }}>No.&nbsp;{doc.docNumber || '-'}</div>
                     </div>
 
                     {/* 発行情報(左55%) + 会社情報+角印(右45%) */}
@@ -351,9 +373,9 @@ export default function ReceiptDetailClient({ documentId }: { documentId: string
           </Button>
           <DocShareButtons
             printRef={printRef}
-            fileName={`領収書_${job?.client ?? ''}_${doc.issueDate}`}
-            subject={`領収書 No.${doc.quoteNumber} - ${doc.subject}`}
-            bodyText={`${job?.client ?? ''}様\n\n領収書をお送りします。\n件名: ${doc.subject}\nNo: ${doc.quoteNumber}`}
+            fileName={`領収書_${customer?.name ?? ''}_${doc.issueDate}`}
+            subject={`領収書 No.${doc.docNumber} - ${doc.subject}`}
+            bodyText={`${customer?.name ?? ''}様\n\n領収書をお送りします。\n件名: ${doc.subject}\nNo: ${doc.docNumber}`}
           />
           <Divider />
           <Button variant="outline" size="md" onClick={handleCopy}>

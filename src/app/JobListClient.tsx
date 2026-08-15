@@ -12,24 +12,34 @@ import {
 } from '@/components/ui'
 import TopNav from '@/components/layout/TopNav'
 import BottomTab from '@/components/layout/BottomTab'
+import CustomerPicker from '@/components/CustomerPicker'
 
 export default function JobListClient() {
   const router = useRouter()
-  const { jobs, jobItems, documents, documentItems, createJob, duplicateJob } = useStore()
+  const { jobs, jobItems, documents, documentItems, createJob, duplicateJob, getCustomer } = useStore()
   const [open, setOpen] = useState(false)
   const [activeTab, setActiveTab] = useState<'active' | 'archived'>('active')
+  const [saving, setSaving] = useState(false)
   const [name, setName] = useState('')
-  const [client, setClient] = useState('')
+  const [customerId, setCustomerId] = useState('')
   const [contactPerson, setContactPerson] = useState('')
 
-  function handleCreate() {
+  async function handleCreate() {
     if (!name.trim()) { showToast('案件名を入力してください', 'error'); return }
-    createJob({ name: name.trim(), client: client.trim(), contactPerson: contactPerson.trim() })
-    setOpen(false)
-    setName('')
-    setClient('')
-    setContactPerson('')
-    showToast('案件を作成しました', 'success')
+    if (!customerId) { showToast('顧客を選択してください', 'error'); return }
+    setSaving(true)
+    try {
+      await createJob({ name: name.trim(), customerId, contactPerson: contactPerson.trim() })
+      setOpen(false)
+      setName('')
+      setCustomerId('')
+      setContactPerson('')
+      showToast('案件を作成しました', 'success')
+    } catch {
+      showToast('作成に失敗しました', 'error')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const sorted = [...jobs].sort((a, b) =>
@@ -66,8 +76,8 @@ export default function JobListClient() {
               <Badge variant="draft">未作成</Badge>
             )}
           </div>
-          {job.client && (
-            <p className="text-xs text-ink-muted mb-2">👤 {job.client}</p>
+          {getCustomer(job.customerId)?.name && (
+            <p className="text-xs text-ink-muted mb-2">👤 {getCustomer(job.customerId)?.name}</p>
           )}
           <div className="flex items-center justify-between">
             <span className="text-xs text-ink-muted">{fmtDate(job.createdAt)}</span>
@@ -101,8 +111,8 @@ export default function JobListClient() {
             </div>
             <Badge variant="final">請求書発行済</Badge>
           </div>
-          {job.client && (
-            <p className="text-xs text-ink-muted mb-2">👤 {job.client}</p>
+          {getCustomer(job.customerId)?.name && (
+            <p className="text-xs text-ink-muted mb-2">👤 {getCustomer(job.customerId)?.name}</p>
           )}
           <div className="flex items-center justify-between">
             <span className="text-xs text-ink-muted">請求金額</span>
@@ -133,8 +143,8 @@ export default function JobListClient() {
             </div>
             <Badge variant="final">終了</Badge>
           </div>
-          {job.client && (
-            <p className="text-xs text-ink-muted mb-2">👤 {job.client}</p>
+          {getCustomer(job.customerId)?.name && (
+            <p className="text-xs text-ink-muted mb-2">👤 {getCustomer(job.customerId)?.name}</p>
           )}
           <div className="flex items-center justify-between">
             <span className="text-xs text-ink-muted">{fmtDate(job.paidAt ?? job.updatedAt)}</span>
@@ -150,8 +160,8 @@ export default function JobListClient() {
     )
   }
 
-  function handleCopyJob(jobId: string) {
-    const newJob = duplicateJob(jobId)
+  async function handleCopyJob(jobId: string) {
+    const newJob = await duplicateJob(jobId)
     if (!newJob) return
     showToast('案件を複製しました', 'success')
     router.push(`/jobs/${newJob.id}`)
@@ -246,15 +256,17 @@ export default function JobListClient() {
             onKeyDown={e => e.key === 'Enter' && handleCreate()}
           />
         </FormGroup>
-        <FormGroup label="顧客名">
-          <Input value={client} onChange={e => setClient(e.target.value)} placeholder="例: 〇〇株式会社" />
+        <FormGroup label="顧客" required>
+          <CustomerPicker value={customerId} onChange={setCustomerId} />
         </FormGroup>
         <FormGroup label="担当者名">
           <Input value={contactPerson} onChange={e => setContactPerson(e.target.value)} placeholder="例: 山田 太郎 様" />
         </FormGroup>
         <div className="flex gap-2.5 mt-2">
           <Button variant="ghost" size="lg" onClick={() => setOpen(false)} className="flex-1">キャンセル</Button>
-          <Button variant="primary" size="lg" onClick={handleCreate} className="flex-1">作成</Button>
+          <Button variant="primary" size="lg" onClick={handleCreate} disabled={saving} className="flex-1">
+            {saving ? '作成中…' : '作成'}
+          </Button>
         </div>
       </Modal>
 

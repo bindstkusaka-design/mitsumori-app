@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useRef } from 'react'
+import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Plus, Trash2, FileEdit, Pencil, ChevronUp, ChevronDown, Check, X } from 'lucide-react'
@@ -14,6 +14,7 @@ import {
 import TopNav from '@/components/layout/TopNav'
 import BackButton from '@/components/layout/BackButton'
 import BottomTab from '@/components/layout/BottomTab'
+import CustomerPicker from '@/components/CustomerPicker'
 import type { JobItem } from '@/types'
 
 interface Props { jobId: string }
@@ -28,7 +29,7 @@ export default function JobDetailClient({ jobId }: Props) {
   const router = useRouter()
   const {
     getJob, getJobItems, addJobItem, updateJobItem, removeJobItem, deleteJob, updateJob,
-    getDocumentsByJob, getDocumentItems, deleteDocument, products, markJobPaid,
+    getDocumentsByJob, getDocumentItems, deleteDocument, products, markJobPaid, getCustomer,
   } = useStore()
 
   const job = getJob(jobId)
@@ -56,10 +57,8 @@ export default function JobDetailClient({ jobId }: Props) {
   // ── アクションモーダル state ───────────────────────────
   const [actionOpen, setActionOpen] = useState(false)
 
-  // ── インライン顧客名編集 state ─────────────────────────
+  // ── インライン顧客選択 state ─────────────────────────
   const [editingClient, setEditingClient] = useState(false)
-  const [clientDraft, setClientDraft] = useState('')
-  const clientInputRef = useRef<HTMLInputElement>(null)
 
   // ── 値引き state ───────────────────────────────────────
   const [discountDraft, setDiscountDraft] = useState('')
@@ -81,17 +80,21 @@ export default function JobDetailClient({ jobId }: Props) {
     setItemName(p.name); setItemPrice(String(p.price)); setItemUnit(p.unit || '式'); setSuggestions([])
   }
 
-  function handleAddItem() {
+  async function handleAddItem() {
     if (!itemName.trim()) { showToast('品名を入力してください', 'error'); return }
-    addJobItem(jobId, {
-      name: itemName.trim(),
-      price: parseFloat(itemPrice) || 0,
-      qty: parseFloat(itemQty) || 1,
-      unit: itemUnit || '式',
-      note: itemNote.trim(),
-    })
-    setAddOpen(false)
-    showToast('明細を追加しました', 'success')
+    try {
+      await addJobItem(jobId, {
+        name: itemName.trim(),
+        price: parseFloat(itemPrice) || 0,
+        qty: parseFloat(itemQty) || 1,
+        unit: itemUnit || '式',
+        note: itemNote.trim(),
+      })
+      setAddOpen(false)
+      showToast('明細を追加しました', 'success')
+    } catch {
+      showToast('追加に失敗しました', 'error')
+    }
   }
 
   // ── 編集モーダル ───────────────────────────────────────
@@ -105,81 +108,97 @@ export default function JobDetailClient({ jobId }: Props) {
     setEditOpen(true)
   }
 
-  function handleEditItem() {
+  async function handleEditItem() {
     if (!editId) return
     if (!editName.trim()) { showToast('品名を入力してください', 'error'); return }
-    updateJobItem(editId, {
-      name: editName.trim(),
-      price: parseFloat(editPrice) || 0,
-      qty: parseFloat(editQty) || 1,
-      unit: editUnit || '式',
-      note: editNote.trim(),
-    })
-    setEditOpen(false)
-    showToast('更新しました', 'success')
+    try {
+      await updateJobItem(editId, {
+        name: editName.trim(),
+        price: parseFloat(editPrice) || 0,
+        qty: parseFloat(editQty) || 1,
+        unit: editUnit || '式',
+        note: editNote.trim(),
+      })
+      setEditOpen(false)
+      showToast('更新しました', 'success')
+    } catch {
+      showToast('更新に失敗しました', 'error')
+    }
   }
 
   // ── 並び替え ───────────────────────────────────────────
-  function moveItem(id: string, direction: 'up' | 'down') {
+  async function moveItem(id: string, direction: 'up' | 'down') {
     const idx = items.findIndex(i => i.id === id)
     if (direction === 'up' && idx === 0) return
     if (direction === 'down' && idx === items.length - 1) return
     const swapIdx = direction === 'up' ? idx - 1 : idx + 1
     const currentOrder = items[idx].sortOrder
     const swapOrder = items[swapIdx].sortOrder
-    updateJobItem(items[idx].id, { sortOrder: swapOrder })
-    updateJobItem(items[swapIdx].id, { sortOrder: currentOrder })
+    await Promise.all([
+      updateJobItem(items[idx].id, { sortOrder: swapOrder }),
+      updateJobItem(items[swapIdx].id, { sortOrder: currentOrder }),
+    ])
   }
 
-  function startEditClient() {
-    setClientDraft(job?.client ?? '')
-    setEditingClient(true)
-    setTimeout(() => clientInputRef.current?.focus(), 50)
+  async function handleChangeCustomer(customerId: string) {
+    try {
+      await updateJob(jobId, { customerId })
+      setEditingClient(false)
+      showToast('顧客を更新しました', 'success')
+    } catch {
+      showToast('更新に失敗しました', 'error')
+    }
   }
 
-  function saveClient() {
-    updateJob(jobId, { client: clientDraft.trim() })
-    setEditingClient(false)
-    showToast('顧客名を更新しました', 'success')
-  }
-
-  function cancelEditClient() {
-    setEditingClient(false)
-  }
-
-  function saveDiscount() {
-    updateJob(jobId, { discount: parseFloat(discountDraft) || 0 })
+  async function saveDiscount() {
+    try {
+      await updateJob(jobId, { discount: parseFloat(discountDraft) || 0 })
+    } catch {
+      showToast('更新に失敗しました', 'error')
+    }
     setEditingDiscount(false)
   }
 
-  function handleDeleteJob() {
+  async function handleDeleteJob() {
     if (!confirm('この案件を削除しますか？')) return
-    deleteJob(jobId)
-    router.push('/')
-    showToast('案件を削除しました')
+    try {
+      await deleteJob(jobId)
+      router.push('/')
+      showToast('案件を削除しました')
+    } catch {
+      showToast('削除に失敗しました', 'error')
+    }
   }
 
-  function handleFinishJob() {
+  async function handleFinishJob() {
     if (!job) return
     if (job.status === 'archived') {
       showToast('この案件はすでに終了しています', 'default')
       return
     }
     if (!confirm('この案件を終了（入金済み）にしますか？')) return
-    markJobPaid(jobId)
-    showToast('案件を終了しました', 'success')
-    router.push('/')
+    try {
+      await markJobPaid(jobId)
+      showToast('案件を終了しました', 'success')
+      router.push('/')
+    } catch {
+      showToast('更新に失敗しました', 'error')
+    }
   }
 
-  function handleMarkPaid() {
+  async function handleMarkPaid() {
     if (!job) return
     if (job.status === 'archived') {
       showToast('この案件はすでに入金済みです', 'default')
       return
     }
     if (!confirm('入金処理をしますか？この案件は終了欄に移動します。')) return
-    markJobPaid(jobId)
-    showToast('入金処理をしました', 'success')
+    try {
+      await markJobPaid(jobId)
+      showToast('入金処理をしました', 'success')
+    } catch {
+      showToast('更新に失敗しました', 'error')
+    }
   }
 
   if (!job) {
@@ -226,22 +245,17 @@ export default function JobDetailClient({ jobId }: Props) {
               </div>
               {editingClient ? (
                 <div style={{ display: 'flex', alignItems: 'center', gap: 4, marginBottom: 2 }}>
-                  <input
-                    ref={clientInputRef}
-                    value={clientDraft}
-                    onChange={e => setClientDraft(e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') saveClient(); if (e.key === 'Escape') cancelEditClient() }}
-                    style={{ flex: 1, fontSize: 13, border: '1px solid #1a6bb5', borderRadius: 4, padding: '2px 6px', outline: 'none' }}
-                  />
-                  <button onClick={saveClient} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2e7d32', padding: 2 }}><Check size={14} /></button>
-                  <button onClick={cancelEditClient} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e53935', padding: 2 }}><X size={14} /></button>
+                  <div style={{ flex: 1 }}>
+                    <CustomerPicker value={job.customerId} onChange={handleChangeCustomer} />
+                  </div>
+                  <button onClick={() => setEditingClient(false)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#e53935', padding: 2 }}><X size={14} /></button>
                 </div>
               ) : (
                 <p
                   style={{ fontSize: 13, color: '#444', marginBottom: 2, cursor: 'pointer' }}
-                  onClick={startEditClient}
+                  onClick={() => setEditingClient(true)}
                 >
-                  {job.client || <span style={{ color: '#aaa' }}>顧客名をタップして入力</span>}{job.contactPerson ? `　${job.contactPerson}` : ''}
+                  {getCustomer(job.customerId)?.name || <span style={{ color: '#aaa' }}>顧客名をタップして選択</span>}{job.contactPerson ? `　${job.contactPerson}` : ''}
                 </p>
               )}
               <p style={{ fontSize: 12, color: '#888' }}>更新：{fmtDate(job.updatedAt)}</p>
@@ -372,7 +386,14 @@ export default function JobDetailClient({ jobId }: Props) {
                     <Pencil size={15} />
                   </button>
                   <button
-                    onClick={() => { removeJobItem(item.id); showToast('削除しました') }}
+                    onClick={async () => {
+                      try {
+                        await removeJobItem(item.id)
+                        showToast('削除しました')
+                      } catch {
+                        showToast('削除に失敗しました', 'error')
+                      }
+                    }}
                     style={{
                       padding: 6, background: 'none', border: 'none', cursor: 'pointer',
                       color: '#e57373',
@@ -465,7 +486,7 @@ export default function JobDetailClient({ jobId }: Props) {
                       }}>
                         {typeLabel[t]}
                       </span>
-                      <span style={{ fontSize: 13, color: '#333' }}>No. {doc.quoteNumber || '-'}</span>
+                      <span style={{ fontSize: 13, color: '#333' }}>No. {doc.docNumber || '-'}</span>
                     </div>
                   </Link>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -481,12 +502,16 @@ export default function JobDetailClient({ jobId }: Props) {
                     </span>
                     <button
                       type="button"
-                      onClick={(event) => {
+                      onClick={async (event) => {
                         event.preventDefault()
                         event.stopPropagation()
                         if (!confirm('この書類を削除しますか？')) return
-                        deleteDocument(doc.id)
-                        showToast('書類を削除しました', 'success')
+                        try {
+                          await deleteDocument(doc.id)
+                          showToast('書類を削除しました', 'success')
+                        } catch {
+                          showToast('削除に失敗しました', 'error')
+                        }
                       }}
                       style={{
                         background: 'none', border: 'none', color: '#e53935', cursor: 'pointer', padding: 4,

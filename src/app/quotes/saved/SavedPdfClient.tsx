@@ -3,27 +3,22 @@
 import React from 'react'
 import Link from 'next/link'
 import { Download, RefreshCw, FolderOpen } from 'lucide-react'
-import { useStore } from '@/lib/store'
+import { useStore, docDetailPath } from '@/lib/store'
 import { calcTotals, fmtDate, fmtMoney } from '@/lib/utils'
+import { getPdfUrl } from '@/lib/pdf-asset-service'
 import {
-  Button, Badge, Card, SectionHeader, EmptyState, ToastProvider, showToast,
+  Button, Badge, Card, SectionHeader, EmptyState, ToastProvider,
 } from '@/components/ui'
 import TopNav from '@/components/layout/TopNav'
 import BottomTab from '@/components/layout/BottomTab'
 
 export default function SavedPdfClient() {
-  const { documents, getJob, getDocumentItems, savePdf } = useStore()
+  const { documents, getJob, getDocumentItems } = useStore()
 
   // pdfPath がある、または finalized の documents を対象
   const pdfDocs = documents
     .filter(d => d.pdfPath || d.status === 'finalized')
     .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-
-  async function handleRegenerate(id: string) {
-    const result = await savePdf(id)
-    if (result.ok) showToast('PDF を再生成しました', 'success')
-    else showToast(result.error ?? '再生成に失敗しました', 'error')
-  }
 
   return (
     <>
@@ -51,7 +46,7 @@ export default function SavedPdfClient() {
               return (
                 <Card key={doc.id} className="p-4">
                   <div className="flex items-start justify-between gap-2 mb-2">
-                    <span className="font-semibold text-sm">No. {doc.quoteNumber || '-'}</span>
+                    <span className="font-semibold text-sm">No. {doc.docNumber || '-'}</span>
                     <Badge variant={hasPdf ? 'pdf' : 'missing'}>
                       {hasPdf ? '📄 保存済' : '⚠ 欠損'}
                     </Badge>
@@ -68,22 +63,24 @@ export default function SavedPdfClient() {
                   </div>
 
                   <div className="flex gap-2">
-                    <Link href={`/quotes/${doc.id}`} className="flex-1">
+                    <Link href={docDetailPath(doc)} className="flex-1">
                       <Button variant="ghost" size="sm" className="w-full">
                         <FolderOpen size={13} /> 開く
                       </Button>
                     </Link>
                     {hasPdf ? (
-                      <Button variant="primary" size="sm" className="flex-1">
+                      <Button
+                        variant="primary" size="sm" className="flex-1"
+                        onClick={() => window.open(getPdfUrl(doc.pdfPath!), '_blank')}
+                      >
                         <Download size={13} /> ダウンロード
                       </Button>
                     ) : (
-                      <Button
-                        variant="outline" size="sm" className="flex-1"
-                        onClick={() => handleRegenerate(doc.id)}
-                      >
-                        <RefreshCw size={13} /> 再生成
-                      </Button>
+                      <Link href={docDetailPath(doc)} className="flex-1">
+                        <Button variant="outline" size="sm" className="w-full">
+                          <RefreshCw size={13} /> 開いて保存
+                        </Button>
+                      </Link>
                     )}
                   </div>
                 </Card>

@@ -6,11 +6,6 @@ export function cn(...inputs: ClassValue[]) {
   return clsx(inputs)
 }
 
-// ── ID generation ──────────────────────────────────────────────
-export function genId(): string {
-  return Date.now().toString(36) + Math.random().toString(36).slice(2, 6)
-}
-
 // ── Date helpers ───────────────────────────────────────────────
 export function todayISO(): string {
   const d = new Date()
@@ -40,21 +35,14 @@ export function fmtMoney(n: number): string {
 }
 
 // ── Document number ────────────────────────────────────────────
-const DOC_PREFIX: Record<DocumentType, string> = {
+export const DOC_PREFIX: Record<DocumentType, string> = {
   quote: 'Q',
   invoice: 'S',
   receipt: 'R',
 }
 
-export function autoDocNo(type: DocumentType, count: number): string {
-  const y = new Date().getFullYear()
-  const prefix = DOC_PREFIX[type]
-  return `${prefix}-${y}-${String(count + 1).padStart(3, '0')}`
-}
-
-/** 後方互換: 旧コードが参照している場合に備えて残す */
-export function autoQuoteNo(existingCount: number): string {
-  return autoDocNo('quote', existingCount)
+export function formatDocNo(type: DocumentType, year: number, number: number): string {
+  return `${DOC_PREFIX[type]}-${year}-${String(number).padStart(3, '0')}`
 }
 
 // ── Totals calculation ─────────────────────────────────────────

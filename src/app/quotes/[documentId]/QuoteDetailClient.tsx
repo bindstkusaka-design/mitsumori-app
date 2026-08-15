@@ -1,11 +1,13 @@
 'use client'
 
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { CheckCircle, Download, Printer, Trash2, RefreshCw } from 'lucide-react'
 import { useStore, getNextDocNo } from '@/lib/store'
 import { calcTotals, fmtDate, fmtMoney } from '@/lib/utils'
-import { loadSeal } from '@/lib/seal-storage'
+import { getSealUrl } from '@/lib/seal-storage'
+import { getPdfUrl } from '@/lib/pdf-asset-service'
+import { generatePdfBlob } from '@/lib/generate-pdf'
 import {
   Button, Badge, Card, EmptyState, ToastProvider, showToast, Divider,
 } from '@/components/ui'
@@ -16,31 +18,39 @@ import DocShareButtons from '@/components/DocShareButtons'
 
 export default function QuoteDetailClient({ documentId }: { documentId: string }) {
   const router = useRouter()
-  const { getDocument, getDocumentItems, getJob, finalizeDocument, deleteDocument, savePdf, createDocument, settings } = useStore()
+  const { getDocument, getDocumentItems, getJob, getCustomer, finalizeDocument, deleteDocument, savePdf, createDocument, settings } = useStore()
   const [saving, setSaving] = useState(false)
-  const [sealDataUrl, setSealDataUrl] = useState<string | null>(null)
   const printRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    setSealDataUrl(loadSeal())
-  }, [])
+  const sealDataUrl = getSealUrl(settings.profile.sealImagePath)
 
   const doc = getDocument(documentId)
   const items = getDocumentItems(documentId)
   const job = doc ? getJob(doc.jobId) : undefined
+  const customer = job ? getCustomer(job.customerId) : undefined
 
   async function handleFinalize() {
     if (!confirm('見積書を確定しますか？\n確定後は内容を変更できません。')) return
-    finalizeDocument(documentId)
-    showToast('見積書を確定しました', 'success')
+    try {
+      await finalizeDocument(documentId)
+      showToast('見積書を確定しました', 'success')
+    } catch {
+      showToast('確定に失敗しました', 'error')
+    }
   }
 
   async function handleSavePdf() {
+    if (!printRef.current || !doc) return
     setSaving(true)
-    const result = await savePdf(documentId)
-    setSaving(false)
-    if (result.ok) showToast('PDFを保存しました', 'success')
-    else showToast(result.error ?? 'PDF保存に失敗しました', 'error')
+    try {
+      const blob = await generatePdfBlob(printRef.current, `御見積書_${customer?.name ?? ''}_${doc.issueDate}`)
+      const result = await savePdf(documentId, blob)
+      if (result.ok) showToast('PDFを保存しました', 'success')
+      else showToast(result.error ?? 'PDF保存に失敗しました', 'error')
+    } catch {
+      showToast('PDF保存に失敗しました', 'error')
+    } finally {
+      setSaving(false)
+    }
   }
 
   function handlePrint() {
@@ -50,7 +60,7 @@ export default function QuoteDetailClient({ documentId }: { documentId: string }
     if (!w) return
     w.document.write(`<!DOCTYPE html><html lang="ja"><head>
       <meta charset="UTF-8">
-      <title>見積書 - ${doc?.quoteNumber ?? ''}</title>
+      <title>見積書 - ${doc?.docNumber ?? ''}</title>
       <link href="https://fonts.googleapis.com/css2?family=Noto+Serif+JP:wght@400;600;700&family=Noto+Sans+JP:wght@400;500&display=swap" rel="stylesheet">
       <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -70,7 +80,7 @@ export default function QuoteDetailClient({ documentId }: { documentId: string }
     w.document.close()
   }
 
-  function handleCreateFrom(type: 'quote' | 'invoice' | 'receipt') {
+  async function handleCreateFrom(type: 'quote' | 'invoice' | 'receipt') {
     if (!doc) return
     const sourceItems = items.map((item, idx) => ({
       sortOrder: idx,
@@ -80,30 +90,40 @@ export default function QuoteDetailClient({ documentId }: { documentId: string }
       unit: item.unit,
       note: item.note,
     }))
-    const newDoc = createDocument(doc.jobId, {
-      docType: type,
-      quoteNumber: getNextDocNo(type),
-      subject: doc.subject,
-      expireDate: doc.expireDate,
-      taxRate: doc.taxRate,
-      honorific: doc.honorific ?? '御中',
-      note: doc.note,
-      discount: doc.discount,
-      sourceItems,
-    })
-    const labels = { quote: '見積書', invoice: '請求書', receipt: '領収書' }
-    const paths = { quote: `/quotes/${newDoc.id}`, invoice: `/invoices/${newDoc.id}`, receipt: `/receipts/${newDoc.id}` }
-    showToast(`${labels[type]}を作成しました`, 'success')
-    router.push(paths[type])
+    try {
+      const docNumber = await getNextDocNo(type)
+      const newDoc = await createDocument(doc.jobId, {
+        docType: type,
+        docNumber,
+        sourceDocumentId: doc.id,
+        subject: doc.subject,
+        expireDate: doc.expireDate,
+        taxRate: doc.taxRate,
+        honorific: doc.honorific ?? '御中',
+        note: doc.note,
+        discount: doc.discount,
+        sourceItems,
+      })
+      const labels = { quote: '見積書', invoice: '請求書', receipt: '領収書' }
+      const paths = { quote: `/quotes/${newDoc.id}`, invoice: `/invoices/${newDoc.id}`, receipt: `/receipts/${newDoc.id}` }
+      showToast(`${labels[type]}を作成しました`, 'success')
+      router.push(paths[type])
+    } catch {
+      showToast('作成に失敗しました', 'error')
+    }
   }
 
-  function handleDelete() {
+  async function handleDelete() {
     if (!confirm('この見積書を削除しますか？')) return
     const jobId = doc?.jobId
-    deleteDocument(documentId)
-    showToast('削除しました')
-    if (jobId) router.push(`/jobs/${jobId}`)
-    else router.push('/')
+    try {
+      await deleteDocument(documentId)
+      showToast('削除しました')
+      if (jobId) router.push(`/jobs/${jobId}`)
+      else router.push('/')
+    } catch {
+      showToast('削除に失敗しました', 'error')
+    }
   }
 
   if (!doc) {
@@ -149,7 +169,7 @@ export default function QuoteDetailClient({ documentId }: { documentId: string }
     <>
       <TopNav
         left={<BackButton href={job ? `/jobs/${doc.jobId}` : '/'} />}
-        title={<span className="text-sm font-semibold">見積書 No.{doc.quoteNumber}</span>}
+        title={<span className="text-sm font-semibold">見積書 No.{doc.docNumber}</span>}
       />
       <main className="max-w-xl mx-auto px-4 pt-4 pb-tab">
 
@@ -157,7 +177,7 @@ export default function QuoteDetailClient({ documentId }: { documentId: string }
         <Card className={`p-3 mb-4 ${isFinalized ? 'bg-accent-light border-green-200' : 'bg-surface-2'}`}>
           <div className="flex justify-between items-center">
             <div>
-              <p className="font-semibold text-sm">No. {doc.quoteNumber || '-'}</p>
+              <p className="font-semibold text-sm">No. {doc.docNumber || '-'}</p>
               <p className="text-xs text-ink-muted mt-0.5">{doc.subject || '件名未設定'}</p>
             </div>
             <div className="flex items-center gap-2">
@@ -200,9 +220,9 @@ export default function QuoteDetailClient({ documentId }: { documentId: string }
                     {/* ② 顧客名(左58%) + No.(右) */}
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 10 }}>
                       <div style={{ width: '58%', textAlign: 'right', fontSize: 14, borderBottom: '1px solid #ccc', paddingBottom: 4, marginBottom: 4 }}>
-                        {job?.client}<span style={{ marginLeft: 6 }}>{doc.honorific ?? '御中'}</span>
+                        {customer?.name}<span style={{ marginLeft: 6 }}>{doc.honorific ?? '御中'}</span>
                       </div>
-                      <div style={{ fontSize: 11, color: '#555' }}>No.&nbsp;{doc.quoteNumber || '-'}</div>
+                      <div style={{ fontSize: 11, color: '#555' }}>No.&nbsp;{doc.docNumber || '-'}</div>
                     </div>
 
                     {/* ③ 発行情報(左55%) + 会社情報+角印(右45%) */}
@@ -356,7 +376,7 @@ export default function QuoteDetailClient({ documentId }: { documentId: string }
                   <Button variant="secondary" size="sm" onClick={handleSavePdf} disabled={saving}>
                     <RefreshCw size={13} /> 再生成
                   </Button>
-                  <Button variant="primary" size="sm">
+                  <Button variant="primary" size="sm" onClick={() => window.open(getPdfUrl(doc.pdfPath!), '_blank')}>
                     <Download size={13} /> DL
                   </Button>
                 </div>
@@ -370,9 +390,9 @@ export default function QuoteDetailClient({ documentId }: { documentId: string }
 
           <DocShareButtons
             printRef={printRef}
-            fileName={`御見積書_${job?.client ?? ''}_${doc.issueDate}`}
-            subject={`御見積書 No.${doc.quoteNumber} - ${doc.subject}`}
-            bodyText={`${job?.client ?? ''}様\n\n御見積書をお送りします。\n件名: ${doc.subject}\nNo: ${doc.quoteNumber}`}
+            fileName={`御見積書_${customer?.name ?? ''}_${doc.issueDate}`}
+            subject={`御見積書 No.${doc.docNumber} - ${doc.subject}`}
+            bodyText={`${customer?.name ?? ''}様\n\n御見積書をお送りします。\n件名: ${doc.subject}\nNo: ${doc.docNumber}`}
           />
 
           <Divider />
