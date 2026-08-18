@@ -1,6 +1,6 @@
 // Supabase の snake_case な行データを、アプリ内で使う camelCase の型に変換する。
 
-import type { Customer, Job, JobItem, Document, DocumentItem, Product, Settings } from '@/types'
+import type { Customer, Job, JobItem, Document, DocumentItem, Product, Settings, Outsourcer } from '@/types'
 
 export function mapCustomer(row: any): Customer {
   return {
@@ -15,6 +15,15 @@ export function mapCustomer(row: any): Customer {
   }
 }
 
+export function mapOutsourcer(row: any): Outsourcer {
+  return {
+    id: row.id,
+    name: row.name,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  }
+}
+
 export function mapJob(row: any): Job {
   return {
     id: row.id,
@@ -24,6 +33,14 @@ export function mapJob(row: any): Job {
     status: row.status,
     discount: row.discount ?? undefined,
     paidAt: row.paid_at ?? undefined,
+    requestDate: row.request_date,
+    completionDate: row.completion_date ?? null,
+    workAddress: row.work_address ?? '',
+    workArea: row.work_area ?? '',
+    dealStatus: row.deal_status ?? null,
+    workGoogleMapUrl: row.work_google_map_url ?? '',
+    outsourcerId: row.outsourcer_id ?? null,
+    outsourcerPayment: row.outsourcer_payment ?? undefined,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

@@ -1,5 +1,8 @@
-// data/sync.json の既存データを Supabase に一括インポートする一回限りのスクリプト。
-// 実行方法: node scripts/import-to-supabase.mjs
+// バックアップJSON（旧localStorage形式）を Supabase に一括インポートするスクリプト。
+// 実行方法: node scripts/import-to-supabase.mjs [対象ファイルパス] [--replace]
+//   対象ファイルパス省略時は data/sync.json
+//   --replace を付けると既存データ（customers/jobs/products/outsourcers とその関連行）を
+//   先に全削除してからインポートする（company_settings 行は削除しない）
 import fs from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -43,16 +46,31 @@ function must(result, label) {
 }
 
 async function main() {
-  const dataPath = path.join(ROOT, 'data', 'sync.json')
+  const args = process.argv.slice(2)
+  const replace = args.includes('--replace')
+  const fileArg = args.find(a => !a.startsWith('--'))
+  const dataPath = fileArg ? path.resolve(fileArg) : path.join(ROOT, 'data', 'sync.json')
   const raw = JSON.parse(fs.readFileSync(dataPath, 'utf8'))
   const { jobs = [], jobItems = [], documents = [], documentItems = [], products = [], settings } = raw
+  console.log(`取り込み元: ${dataPath}`)
 
-  // ── 安全策: 既にデータが投入されていないか確認 ──
-  const { count, error: countError } = await supabase.from('customers').select('id', { count: 'exact', head: true })
-  if (countError) { console.error('✗ 既存データ確認:', countError.message); process.exit(1) }
-  if (count && count > 0) {
-    console.error(`✗ customers テーブルに既に ${count} 件のデータがあります。二重インポートを避けるため中断します。`)
-    process.exit(1)
+  if (replace) {
+    // ── --replace: 既存データを先に全削除（company_settings 行は残す） ──
+    must(await supabase.from('documents').delete().not('id', 'is', null), '既存書類の削除')
+    must(await supabase.from('jobs').delete().not('id', 'is', null), '既存案件の削除')
+    must(await supabase.from('products').delete().not('id', 'is', null), '既存商品の削除')
+    must(await supabase.from('customers').delete().not('id', 'is', null), '既存顧客の削除')
+    must(await supabase.from('outsourcers').delete().not('id', 'is', null), '既存外注先の削除')
+    must(await supabase.from('doc_number_counters').delete().not('doc_type', 'is', null), '既存採番カウンターの削除')
+    console.log('✓ 既存データを削除しました')
+  } else {
+    // ── 安全策: 既にデータが投入されていないか確認 ──
+    const { count, error: countError } = await supabase.from('customers').select('id', { count: 'exact', head: true })
+    if (countError) { console.error('✗ 既存データ確認:', countError.message); process.exit(1) }
+    if (count && count > 0) {
+      console.error(`✗ customers テーブルに既に ${count} 件のデータがあります。二重インポートを避けるため中断します（--replace で既存データを削除してから取り込めます）。`)
+      process.exit(1)
+    }
   }
 
   // ── 1. 顧客マスタ ──
@@ -107,17 +125,44 @@ async function main() {
   console.log(`✓ 案件明細 ${jobItemCount}件`)
 
   // ── 4. 書類 ──
-  const docIdMap = new Map()
+  // 旧アプリの採番バグにより同一 (doc_type, year) 内で番号が重複しているケースがある。
+  // 作成日時の古い順に処理し、既出の番号なら「その時点までの最大値+1」を新たに割り当てる
+  // （古い方＝実際に発行済みの可能性が高い方の番号を優先的に保持する）。
+  const docsChronological = [...documents].sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt))
+  const usedNumbers = new Map() // "doc_type-year" -> Set<number>
   const docNumberStats = new Map() // "doc_type-year" -> max number
+  const finalNumberById = new Map() // doc.id -> 最終的な doc_number 文字列
+  for (const d of docsChronological) {
+    const docType = d.docType ?? 'quote'
+    const match = /^[A-Z]+-(\d+)-(\d+)$/.exec(d.quoteNumber ?? '')
+    if (!match) { finalNumberById.set(d.id, d.quoteNumber); continue }
+    const year = parseInt(match[1], 10)
+    const num = parseInt(match[2], 10)
+    const key = `${docType}-${year}`
+    if (!usedNumbers.has(key)) usedNumbers.set(key, new Set())
+    const used = usedNumbers.get(key)
+    let finalNum = num
+    if (used.has(num)) {
+      finalNum = (docNumberStats.get(key) ?? num) + 1
+      const newNumber = `${DOC_PREFIX[docType]}-${year}-${String(finalNum).padStart(3, '0')}`
+      console.log(`  ⚠ 番号重複を解消: ${d.quoteNumber} (${d.id}, ${d.createdAt}) → ${newNumber}`)
+    }
+    used.add(finalNum)
+    docNumberStats.set(key, Math.max(docNumberStats.get(key) ?? 0, finalNum))
+    finalNumberById.set(d.id, `${DOC_PREFIX[docType]}-${year}-${String(finalNum).padStart(3, '0')}`)
+  }
+
+  const docIdMap = new Map()
   for (const d of documents) {
     const jobId = jobIdMap.get(d.jobId)
     if (!jobId) continue
     const docType = d.docType ?? 'quote'
+    const finalNumber = finalNumberById.get(d.id)
     const row = must(
       await supabase.from('documents').insert({
         job_id: jobId,
         doc_type: docType,
-        doc_number: d.quoteNumber,
+        doc_number: finalNumber,
         subject: d.subject ?? '',
         issue_date: d.issueDate,
         expire_date: d.expireDate || null,
@@ -132,17 +177,9 @@ async function main() {
         created_at: d.createdAt,
         updated_at: d.updatedAt,
       }).select().single(),
-      `書類作成: ${d.quoteNumber}`,
+      `書類作成: ${finalNumber}`,
     )
     docIdMap.set(d.id, row.id)
-
-    const match = /^[A-Z]+-(\d+)-(\d+)$/.exec(d.quoteNumber ?? '')
-    if (match) {
-      const year = parseInt(match[1], 10)
-      const num = parseInt(match[2], 10)
-      const key = `${docType}-${year}`
-      docNumberStats.set(key, Math.max(docNumberStats.get(key) ?? 0, num))
-    }
   }
   console.log(`✓ 書類 ${docIdMap.size}件`)
 

@@ -3,19 +3,26 @@
 import React, { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Plus, Trash2, FileEdit, Pencil, ChevronUp, ChevronDown, Check, X } from 'lucide-react'
+import { Plus, Trash2, FileEdit, Pencil, ChevronUp, ChevronDown, Check, X, Copy, ExternalLink } from 'lucide-react'
 import { useStore, docDetailPath } from '@/lib/store'
 import { fmtDate, fmtMoney, calcTotals } from '@/lib/utils'
-import type { DocumentType } from '@/types'
+import type { DocumentType, DealStatus } from '@/types'
 import {
-  Button, Modal, FormGroup, Input,
+  Button, Modal, ConfirmModal, FormGroup, Input, Select, Textarea,
   ToastProvider, showToast,
 } from '@/components/ui'
 import TopNav from '@/components/layout/TopNav'
 import BackButton from '@/components/layout/BackButton'
 import BottomTab from '@/components/layout/BottomTab'
 import CustomerPicker from '@/components/CustomerPicker'
+import OutsourcerPicker from '@/components/OutsourcerPicker'
 import type { JobItem } from '@/types'
+
+const DEAL_STATUS_COLOR: Record<DealStatus, string> = {
+  '商談中': '#f57f17',
+  '受注済み': '#1a6bb5',
+  '完了': '#2e7d32',
+}
 
 interface Props { jobId: string }
 
@@ -29,7 +36,7 @@ export default function JobDetailClient({ jobId }: Props) {
   const router = useRouter()
   const {
     getJob, getJobItems, addJobItem, updateJobItem, removeJobItem, deleteJob, updateJob,
-    getDocumentsByJob, getDocumentItems, deleteDocument, products, markJobPaid, getCustomer,
+    getDocumentsByJob, getDocumentItems, deleteDocument, products, markJobPaid, getCustomer, getOutsourcer,
   } = useStore()
 
   const job = getJob(jobId)
@@ -63,6 +70,25 @@ export default function JobDetailClient({ jobId }: Props) {
   // ── 値引き state ───────────────────────────────────────
   const [discountDraft, setDiscountDraft] = useState('')
   const [editingDiscount, setEditingDiscount] = useState(false)
+
+  // ── 詳細情報編集 state ─────────────────────────────────
+  const [detailEditOpen, setDetailEditOpen] = useState(false)
+  const [detailSaving, setDetailSaving] = useState(false)
+  const [dealStatusDraft, setDealStatusDraft] = useState('')
+  const [completionDateDraft, setCompletionDateDraft] = useState('')
+  const [workAddressDraft, setWorkAddressDraft] = useState('')
+  const [workAreaDraft, setWorkAreaDraft] = useState('')
+  const [workGoogleMapUrlDraft, setWorkGoogleMapUrlDraft] = useState('')
+  const [outsourcerIdDraft, setOutsourcerIdDraft] = useState('')
+  const [outsourcerPaymentDraft, setOutsourcerPaymentDraft] = useState('')
+
+  // ── 外注先LINE共有 state ───────────────────────────────
+  const [lineShareOpen, setLineShareOpen] = useState(false)
+  const [lineMessage, setLineMessage] = useState('')
+
+  // ── 削除確認 state ─────────────────────────────────────
+  const [deleteJobOpen, setDeleteJobOpen] = useState(false)
+  const [deletingJob, setDeletingJob] = useState(false)
 
   // ── 追加モーダル ───────────────────────────────────────
   function openAdd() {
@@ -159,14 +185,91 @@ export default function JobDetailClient({ jobId }: Props) {
     setEditingDiscount(false)
   }
 
-  async function handleDeleteJob() {
-    if (!confirm('この案件を削除しますか？')) return
+  function openDetailEdit() {
+    if (!job) return
+    setDealStatusDraft(job.dealStatus ?? '')
+    setCompletionDateDraft(job.completionDate ?? '')
+    setWorkAddressDraft(job.workAddress ?? '')
+    setWorkAreaDraft(job.workArea ?? '')
+    setWorkGoogleMapUrlDraft(job.workGoogleMapUrl ?? '')
+    setOutsourcerIdDraft(job.outsourcerId ?? '')
+    setOutsourcerPaymentDraft(job.outsourcerPayment !== undefined ? String(job.outsourcerPayment) : '')
+    setDetailEditOpen(true)
+  }
+
+  async function saveDetailEdit() {
+    setDetailSaving(true)
+    try {
+      await updateJob(jobId, {
+        dealStatus: (dealStatusDraft || null) as DealStatus | null,
+        completionDate: completionDateDraft || null,
+        workAddress: workAddressDraft.trim(),
+        workArea: workAreaDraft.trim(),
+        workGoogleMapUrl: workGoogleMapUrlDraft.trim(),
+        outsourcerId: outsourcerIdDraft || null,
+        outsourcerPayment: outsourcerPaymentDraft ? parseFloat(outsourcerPaymentDraft) : null,
+      })
+      setDetailEditOpen(false)
+      showToast('詳細情報を更新しました', 'success')
+    } catch {
+      showToast('更新に失敗しました', 'error')
+    } finally {
+      setDetailSaving(false)
+    }
+  }
+
+  function buildLineMessage(): string {
+    if (!job) return ''
+    const customer = getCustomer(job.customerId)
+    const address = job.workAddress || customer?.address || ''
+    const parts: string[] = [`【${job.name}】`]
+    if (address) parts.push(`作業場所: ${address}`)
+    if (job.workGoogleMapUrl) parts.push(job.workGoogleMapUrl)
+    if (job.workArea) parts.push(`広さ: ${job.workArea}`)
+    if (items.length > 0) {
+      parts.push('')
+      parts.push('作業内容:')
+      for (const item of items) parts.push(`・${item.name}`)
+    }
+    return parts.join('\n')
+  }
+
+  function openLineShare() {
+    setLineMessage(buildLineMessage())
+    setLineShareOpen(true)
+  }
+
+  async function handleCopyLineMessage() {
+    try {
+      await navigator.clipboard.writeText(lineMessage)
+      showToast('コピーしました', 'success')
+    } catch {
+      showToast('コピーに失敗しました', 'error')
+    }
+  }
+
+  async function handleSendLine() {
+    if (navigator.share) {
+      try {
+        await navigator.share({ text: lineMessage })
+        return
+      } catch (e: any) {
+        if (e?.name === 'AbortError') return
+      }
+    }
+    const lineUrl = `https://social-plugins.line.me/lineit/share?text=${encodeURIComponent(lineMessage)}`
+    window.open(lineUrl, '_blank')
+  }
+
+  async function confirmDeleteJob() {
+    setDeletingJob(true)
     try {
       await deleteJob(jobId)
-      router.push('/')
       showToast('案件を削除しました')
+      router.push('/')
     } catch {
       showToast('削除に失敗しました', 'error')
+      setDeletingJob(false)
     }
   }
 
@@ -460,6 +563,75 @@ export default function JobDetailClient({ jobId }: Props) {
           )}
         </div>
 
+        {/* 詳細情報 */}
+        <div style={{ backgroundColor: '#fff', marginBottom: 8 }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 16px 6px', borderBottom: '1px solid #eee' }}>
+            <p style={{ fontSize: 12, fontWeight: 600, color: '#888' }}>詳細情報</p>
+            <button
+              onClick={openDetailEdit}
+              style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1a6bb5', display: 'flex', alignItems: 'center', gap: 4, fontSize: 12 }}
+            >
+              <Pencil size={13} /> 編集
+            </button>
+          </div>
+          <div style={{ padding: '4px 16px 10px' }}>
+            {[
+              {
+                label: '状態',
+                value: job.dealStatus ? (
+                  <span style={{
+                    fontSize: 11, fontWeight: 700, padding: '2px 8px', borderRadius: 999,
+                    color: '#fff', backgroundColor: DEAL_STATUS_COLOR[job.dealStatus],
+                  }}>
+                    {job.dealStatus}
+                  </span>
+                ) : '未設定',
+              },
+              { label: '依頼日', value: fmtDate(job.requestDate) || '-' },
+              { label: '作業完了日', value: job.completionDate ? fmtDate(job.completionDate) : '未設定' },
+              { label: '作業箇所住所', value: job.workAddress || '（顧客住所を使用）' },
+              { label: '作業場所の広さ', value: job.workArea || '-' },
+              {
+                label: 'Googleマップ',
+                value: job.workGoogleMapUrl ? (
+                  <a
+                    href={job.workGoogleMapUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: '#1a6bb5', display: 'inline-flex', alignItems: 'center', gap: 3 }}
+                  >
+                    地図を開く <ExternalLink size={11} />
+                  </a>
+                ) : '-',
+              },
+              { label: '外注先', value: job.outsourcerId ? (getOutsourcer(job.outsourcerId)?.name ?? '-') : '未設定' },
+              { label: '外注先への支払い', value: job.outsourcerPayment ? fmtMoney(job.outsourcerPayment) : '-' },
+            ].map(row => (
+              <div key={row.label} style={{ display: 'flex', alignItems: 'center', padding: '6px 0', borderBottom: '1px solid #f5f5f5', fontSize: 13 }}>
+                <span style={{ width: 108, flexShrink: 0, color: '#888', fontSize: 12 }}>{row.label}</span>
+                <span style={{ color: '#333' }}>{row.value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 外注先へ共有 */}
+        {job.outsourcerId && (
+          <div style={{ backgroundColor: '#fff', marginBottom: 8, padding: '12px 16px' }}>
+            <button
+              onClick={openLineShare}
+              style={{
+                width: '100%', padding: '10px', borderRadius: 8,
+                border: '1.5px solid #06c755', backgroundColor: '#eefaf2',
+                color: '#06a544', fontSize: 13, fontWeight: 600,
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, cursor: 'pointer',
+              }}
+            >
+              💬 外注先へLINEで共有
+            </button>
+          </div>
+        )}
+
         {/* 書類一覧 */}
         {docs.length > 0 && (
           <div style={{ backgroundColor: '#fff', marginBottom: 8 }}>
@@ -530,7 +702,7 @@ export default function JobDetailClient({ jobId }: Props) {
         {/* 案件削除 */}
         <div style={{ padding: '8px 16px 16px' }}>
           <button
-            onClick={handleDeleteJob}
+            onClick={() => setDeleteJobOpen(true)}
             style={{
               width: '100%', padding: '10px', borderRadius: 8,
               border: '1px solid #ffcdd2', backgroundColor: '#fff8f8',
@@ -684,6 +856,80 @@ export default function JobDetailClient({ jobId }: Props) {
           <Button variant="primary" size="lg" onClick={handleEditItem} className="flex-1">保存</Button>
         </div>
       </Modal>
+
+      {/* 詳細情報編集モーダル */}
+      <Modal open={detailEditOpen} onClose={() => setDetailEditOpen(false)} title="詳細情報を編集">
+        <FormGroup label="状態">
+          <Select value={dealStatusDraft} onChange={e => setDealStatusDraft(e.target.value)}>
+            <option value="">未設定</option>
+            <option value="商談中">商談中</option>
+            <option value="受注済み">受注済み</option>
+            <option value="完了">完了</option>
+          </Select>
+        </FormGroup>
+        <FormGroup label="作業完了日">
+          <Input type="date" value={completionDateDraft} onChange={e => setCompletionDateDraft(e.target.value)} />
+        </FormGroup>
+        <FormGroup label="作業箇所住所">
+          <Input
+            value={workAddressDraft}
+            onChange={e => setWorkAddressDraft(e.target.value)}
+            placeholder="顧客住所と異なる場合のみ入力"
+          />
+        </FormGroup>
+        <FormGroup label="作業場所の広さ">
+          <Input value={workAreaDraft} onChange={e => setWorkAreaDraft(e.target.value)} placeholder="例: 30㎡" />
+        </FormGroup>
+        <FormGroup label="Googleマップリンク（作業箇所）">
+          <Input value={workGoogleMapUrlDraft} onChange={e => setWorkGoogleMapUrlDraft(e.target.value)} placeholder="https://maps.google.com/..." />
+        </FormGroup>
+        <FormGroup label="外注先">
+          <OutsourcerPicker value={outsourcerIdDraft} onChange={setOutsourcerIdDraft} />
+        </FormGroup>
+        <FormGroup label="外注先への支払い金額">
+          <Input
+            type="number" value={outsourcerPaymentDraft}
+            onChange={e => setOutsourcerPaymentDraft(e.target.value)}
+            placeholder="0" className="text-right"
+          />
+        </FormGroup>
+        <div className="flex gap-2.5 mt-2">
+          <Button variant="ghost" size="lg" onClick={() => setDetailEditOpen(false)} className="flex-1">キャンセル</Button>
+          <Button variant="primary" size="lg" onClick={saveDetailEdit} disabled={detailSaving} className="flex-1">
+            {detailSaving ? '保存中…' : '保存'}
+          </Button>
+        </div>
+      </Modal>
+
+      {/* 外注先へのLINE共有モーダル */}
+      <Modal open={lineShareOpen} onClose={() => setLineShareOpen(false)} title="外注先へ共有">
+        <FormGroup label="送信メッセージ（編集できます）">
+          <Textarea value={lineMessage} onChange={e => setLineMessage(e.target.value)} rows={9} />
+        </FormGroup>
+        <div className="flex gap-2.5 mt-2">
+          <Button variant="ghost" size="lg" onClick={handleCopyLineMessage} className="flex-1">
+            <Copy size={14} /> コピー
+          </Button>
+          <Button variant="primary" size="lg" onClick={handleSendLine} className="flex-1" style={{ backgroundColor: '#06c755' }}>
+            💬 LINEで送る
+          </Button>
+        </div>
+      </Modal>
+
+      {/* 案件削除の確認モーダル */}
+      <ConfirmModal
+        open={deleteJobOpen}
+        onClose={() => setDeleteJobOpen(false)}
+        onConfirm={confirmDeleteJob}
+        confirming={deletingJob}
+        message={
+          <>
+            「{job.name}」を削除します。<br />
+            明細{items.length}件・書類{docs.length}件も同時に削除されます。<br />
+            この操作は元に戻せません。
+          </>
+        }
+      />
 
       <ToastProvider />
     </>

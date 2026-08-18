@@ -2,13 +2,13 @@ import { create } from 'zustand'
 import { subscribeWithSelector } from 'zustand/middleware'
 import type {
   Customer, Job, JobItem, Document, DocumentItem,
-  Product, Settings, TaxRate, Honorific, DocumentType,
+  Product, Settings, TaxRate, Honorific, DocumentType, Outsourcer, DealStatus,
 } from '@/types'
 import { todayISO, formatDocNo } from '@/lib/utils'
 import { supabase, unwrap } from '@/lib/supabase'
 import { savePdfAsset } from '@/lib/pdf-asset-service'
 import {
-  mapCustomer, mapJob, mapJobItem, mapDocument, mapDocumentItem, mapProduct, mapSettings,
+  mapCustomer, mapJob, mapJobItem, mapDocument, mapDocumentItem, mapProduct, mapSettings, mapOutsourcer,
   COMPANY_SETTINGS_ID,
 } from '@/lib/mappers'
 
@@ -42,6 +42,7 @@ const DEFAULT_SETTINGS: Settings = {
 // ── Store interface ────────────────────────────────────────────
 interface AppState {
   customers: Customer[]
+  outsourcers: Outsourcer[]
   jobs: Job[]
   jobItems: JobItem[]
   documents: Document[]
@@ -58,8 +59,15 @@ interface AppStore extends AppState {
   deleteCustomer(id: string): Promise<{ ok: boolean; error?: string }>
   getCustomer(id: string): Customer | undefined
 
-  createJob(params: Pick<Job, 'name' | 'customerId' | 'contactPerson'>): Promise<Job>
-  updateJob(id: string, params: Partial<Pick<Job, 'name' | 'customerId' | 'contactPerson' | 'discount'>>): Promise<void>
+  createOutsourcer(params: { name: string }): Promise<Outsourcer>
+  getOutsourcer(id: string): Outsourcer | undefined
+
+  createJob(params: Pick<Job, 'name' | 'customerId' | 'contactPerson'> & { requestDate?: string }): Promise<Job>
+  updateJob(id: string, params: Partial<Pick<Job,
+    'name' | 'customerId' | 'contactPerson' | 'discount' |
+    'completionDate' | 'workAddress' | 'workArea' | 'dealStatus' | 'workGoogleMapUrl' |
+    'outsourcerId' | 'outsourcerPayment'
+  >>): Promise<void>
   deleteJob(id: string): Promise<void>
   getJob(id: string): Job | undefined
   getJobItems(jobId: string): JobItem[]
@@ -101,6 +109,7 @@ interface AppStore extends AppState {
 export const useStore = create<AppStore>()(
   subscribeWithSelector((set, get) => ({
     customers: [],
+    outsourcers: [],
     jobs: [],
     jobItems: [],
     documents: [],
@@ -109,9 +118,10 @@ export const useStore = create<AppStore>()(
     settings: DEFAULT_SETTINGS,
 
     async hydrate() {
-      const [customersRes, jobsRes, jobItemsRes, documentsRes, documentItemsRes, productsRes, settingsRes] =
+      const [customersRes, outsourcersRes, jobsRes, jobItemsRes, documentsRes, documentItemsRes, productsRes, settingsRes] =
         await Promise.all([
           supabase.from('customers').select('*'),
+          supabase.from('outsourcers').select('*'),
           supabase.from('jobs').select('*'),
           supabase.from('job_items').select('*'),
           supabase.from('documents').select('*'),
@@ -119,11 +129,12 @@ export const useStore = create<AppStore>()(
           supabase.from('products').select('*'),
           supabase.from('company_settings').select('*').eq('id', COMPANY_SETTINGS_ID).maybeSingle(),
         ])
-      for (const res of [customersRes, jobsRes, jobItemsRes, documentsRes, documentItemsRes, productsRes, settingsRes]) {
+      for (const res of [customersRes, outsourcersRes, jobsRes, jobItemsRes, documentsRes, documentItemsRes, productsRes, settingsRes]) {
         if (res.error) throw new Error(res.error.message)
       }
       set({
         customers: (customersRes.data ?? []).map(mapCustomer),
+        outsourcers: (outsourcersRes.data ?? []).map(mapOutsourcer),
         jobs: (jobsRes.data ?? []).map(mapJob),
         jobItems: (jobItemsRes.data ?? []).map(mapJobItem),
         documents: (documentsRes.data ?? []).map(mapDocument),
@@ -173,10 +184,21 @@ export const useStore = create<AppStore>()(
 
     getCustomer(id) { return get().customers.find(c => c.id === id) },
 
+    // ── Outsourcers ────────────────────────────────────────
+    async createOutsourcer({ name }) {
+      const row = unwrap(await supabase.from('outsourcers').insert({ name }).select().single())
+      const outsourcer = mapOutsourcer(row)
+      set(s => ({ outsourcers: [...s.outsourcers, outsourcer] }))
+      return outsourcer
+    },
+
+    getOutsourcer(id) { return get().outsourcers.find(o => o.id === id) },
+
     // ── Jobs ───────────────────────────────────────────────
-    async createJob({ name, customerId, contactPerson }) {
+    async createJob({ name, customerId, contactPerson, requestDate }) {
       const row = unwrap(await supabase.from('jobs').insert({
         name, customer_id: customerId, contact_person: contactPerson, status: 'active',
+        request_date: requestDate || todayISO(),
       }).select().single())
       const job = mapJob(row)
       set(s => ({ jobs: [...s.jobs, job] }))
@@ -189,6 +211,13 @@ export const useStore = create<AppStore>()(
       if (params.customerId !== undefined) payload.customer_id = params.customerId
       if (params.contactPerson !== undefined) payload.contact_person = params.contactPerson
       if (params.discount !== undefined) payload.discount = params.discount
+      if (params.completionDate !== undefined) payload.completion_date = params.completionDate
+      if (params.workAddress !== undefined) payload.work_address = params.workAddress
+      if (params.workArea !== undefined) payload.work_area = params.workArea
+      if (params.dealStatus !== undefined) payload.deal_status = params.dealStatus
+      if (params.workGoogleMapUrl !== undefined) payload.work_google_map_url = params.workGoogleMapUrl
+      if (params.outsourcerId !== undefined) payload.outsourcer_id = params.outsourcerId
+      if (params.outsourcerPayment !== undefined) payload.outsourcer_payment = params.outsourcerPayment
       const row = unwrap(await supabase.from('jobs').update(payload).eq('id', id).select().single())
       const job = mapJob(row)
       set(s => ({ jobs: s.jobs.map(j => (j.id === id ? job : j)) }))
@@ -286,6 +315,14 @@ export const useStore = create<AppStore>()(
         documents: [...s.documents, doc],
         documentItems: [...s.documentItems, ...docItems],
       }))
+
+      if (docType === 'invoice') {
+        const job = get().getJob(jobId)
+        if (job && !job.completionDate) {
+          get().updateJob(jobId, { completionDate: todayISO() }).catch(() => {})
+        }
+      }
+
       return doc
     },
 
@@ -420,6 +457,7 @@ export const useStore = create<AppStore>()(
       await supabase.from('jobs').delete().not('id', 'is', null)
       await supabase.from('products').delete().not('id', 'is', null)
       await supabase.from('customers').delete().not('id', 'is', null)
+      await supabase.from('outsourcers').delete().not('id', 'is', null)
       const row = unwrap(await supabase.from('company_settings').update({
         company_name: '', postal_code: '', address: '', tel: '', email: '', invoice_number: '',
         bank_name: '', bank_branch: '', bank_account_type: '', bank_account_number: '', bank_account_holder: '',
@@ -427,7 +465,7 @@ export const useStore = create<AppStore>()(
         title_templates: [], note_templates: [],
       }).eq('id', COMPANY_SETTINGS_ID).select().single())
       set({
-        customers: [], jobs: [], jobItems: [], documents: [], documentItems: [], products: [],
+        customers: [], outsourcers: [], jobs: [], jobItems: [], documents: [], documentItems: [], products: [],
         settings: mapSettings(row),
       })
     },

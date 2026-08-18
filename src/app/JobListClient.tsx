@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Plus } from 'lucide-react'
 import { useStore } from '@/lib/store'
-import { fmtDate, fmtMoney, calcTotals } from '@/lib/utils'
+import { fmtDate, fmtMoney, calcTotals, todayISO } from '@/lib/utils'
 import {
   Button, Badge, Card, Modal, FormGroup, Input,
   SectionHeader, EmptyState, ToastProvider, showToast,
@@ -23,17 +23,19 @@ export default function JobListClient() {
   const [name, setName] = useState('')
   const [customerId, setCustomerId] = useState('')
   const [contactPerson, setContactPerson] = useState('')
+  const [requestDate, setRequestDate] = useState(todayISO())
 
   async function handleCreate() {
     if (!name.trim()) { showToast('案件名を入力してください', 'error'); return }
     if (!customerId) { showToast('顧客を選択してください', 'error'); return }
     setSaving(true)
     try {
-      await createJob({ name: name.trim(), customerId, contactPerson: contactPerson.trim() })
+      await createJob({ name: name.trim(), customerId, contactPerson: contactPerson.trim(), requestDate })
       setOpen(false)
       setName('')
       setCustomerId('')
       setContactPerson('')
+      setRequestDate(todayISO())
       showToast('案件を作成しました', 'success')
     } catch {
       showToast('作成に失敗しました', 'error')
@@ -261,6 +263,9 @@ export default function JobListClient() {
         </FormGroup>
         <FormGroup label="担当者名">
           <Input value={contactPerson} onChange={e => setContactPerson(e.target.value)} placeholder="例: 山田 太郎 様" />
+        </FormGroup>
+        <FormGroup label="依頼日">
+          <Input type="date" value={requestDate} onChange={e => setRequestDate(e.target.value)} />
         </FormGroup>
         <div className="flex gap-2.5 mt-2">
           <Button variant="ghost" size="lg" onClick={() => setOpen(false)} className="flex-1">キャンセル</Button>

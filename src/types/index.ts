@@ -7,6 +7,7 @@ export type DocumentStatus = 'draft' | 'finalized'
 export type TaxRate = 0 | 0.08 | 0.10
 export type Honorific = '様' | '御中'
 export type DocumentType = 'quote' | 'invoice' | 'receipt'
+export type DealStatus = '商談中' | '受注済み' | '完了'
 
 // ----------------------------------------------------------------
 // Customer (顧客マスタ)
@@ -23,6 +24,16 @@ export interface Customer {
 }
 
 // ----------------------------------------------------------------
+// Outsourcer (外注先マスタ)
+// ----------------------------------------------------------------
+export interface Outsourcer {
+  id: string
+  name: string
+  createdAt: string
+  updatedAt: string
+}
+
+// ----------------------------------------------------------------
 // Job (案件)
 // ----------------------------------------------------------------
 export interface Job {
@@ -33,6 +44,14 @@ export interface Job {
   status: JobStatus
   discount?: number
   paidAt?: string
+  requestDate: string
+  completionDate?: string | null
+  workAddress: string
+  workArea: string
+  dealStatus?: DealStatus | null
+  workGoogleMapUrl: string
+  outsourcerId?: string | null
+  outsourcerPayment?: number | null
   createdAt: string
   updatedAt: string
 }

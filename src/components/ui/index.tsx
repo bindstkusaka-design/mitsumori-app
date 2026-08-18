@@ -133,6 +133,35 @@ export function Modal({ open, onClose, title, children }: ModalProps) {
   )
 }
 
+// ── ConfirmModal (削除など破壊的操作の2段階確認) ─────────────
+interface ConfirmModalProps {
+  open: boolean
+  onClose: () => void
+  onConfirm: () => void
+  title?: string
+  message: React.ReactNode
+  confirmLabel?: string
+  confirming?: boolean
+}
+
+export function ConfirmModal({
+  open, onClose, onConfirm, title = '本当に削除しますか？', message, confirmLabel = '削除する', confirming,
+}: ConfirmModalProps) {
+  return (
+    <Modal open={open} onClose={onClose} title={title}>
+      <div className="text-sm text-ink-sub leading-relaxed mb-5">{message}</div>
+      <div className="flex gap-2.5">
+        <Button variant="ghost" size="lg" onClick={onClose} className="flex-1" disabled={confirming}>
+          キャンセル
+        </Button>
+        <Button variant="danger" size="lg" onClick={onConfirm} className="flex-1" disabled={confirming}>
+          {confirming ? '削除中…' : confirmLabel}
+        </Button>
+      </div>
+    </Modal>
+  )
+}
+
 // ── FormGroup ──────────────────────────────────────────────────
 export function FormGroup({
   label,

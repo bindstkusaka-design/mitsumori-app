@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import {
-  Button, Card, Modal, FormGroup, Input,
+  Button, Card, Modal, ConfirmModal, FormGroup, Input,
   SectionHeader, EmptyState, ToastProvider, showToast,
 } from '@/components/ui'
 import TopNav from '@/components/layout/TopNav'
@@ -23,6 +23,9 @@ export default function CustomersClient() {
   const [address, setAddress] = useState('')
   const [email, setEmail] = useState('')
   const [googleMapUrl, setGoogleMapUrl] = useState('')
+
+  const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null)
+  const [deleting, setDeleting] = useState(false)
 
   function openNew() {
     setEditing(null); setName(''); setTel(''); setAddress(''); setEmail(''); setGoogleMapUrl('')
@@ -54,11 +57,20 @@ export default function CustomersClient() {
     }
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm('この顧客を削除しますか？')) return
-    const result = await deleteCustomer(id)
-    if (result.ok) showToast('削除しました')
-    else showToast(result.error ?? '削除に失敗しました', 'error')
+  async function handleConfirmDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
+    try {
+      const result = await deleteCustomer(deleteTarget.id)
+      if (result.ok) {
+        showToast('削除しました')
+        setDeleteTarget(null)
+      } else {
+        showToast(result.error ?? '削除に失敗しました', 'error')
+      }
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const sorted = [...customers].sort((a, b) => a.name.localeCompare(b.name, 'ja'))
@@ -107,7 +119,7 @@ export default function CustomersClient() {
                       <Pencil size={15} />
                     </button>
                     <button
-                      onClick={() => handleDelete(c.id)}
+                      onClick={() => setDeleteTarget(c)}
                       className="p-1.5 text-ink-muted hover:text-red-500 transition-colors"
                     >
                       <Trash2 size={15} />
@@ -143,6 +155,19 @@ export default function CustomersClient() {
           </Button>
         </div>
       </Modal>
+
+      <ConfirmModal
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+        confirming={deleting}
+        message={
+          <>
+            「{deleteTarget?.name}」を削除します。<br />
+            この操作は元に戻せません。案件で使用中の場合は削除できません。
+          </>
+        }
+      />
 
       <ToastProvider />
       <BottomTab />
