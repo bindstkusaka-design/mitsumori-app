@@ -54,8 +54,8 @@ interface AppState {
 interface AppStore extends AppState {
   hydrate(): Promise<void>
 
-  createCustomer(params: Pick<Customer, 'name' | 'tel' | 'address' | 'email' | 'googleMapUrl'>): Promise<Customer>
-  updateCustomer(id: string, params: Partial<Pick<Customer, 'name' | 'tel' | 'address' | 'email' | 'googleMapUrl'>>): Promise<void>
+  createCustomer(params: Pick<Customer, 'name' | 'tel' | 'address' | 'email' | 'googleMapUrl' | 'notes'>): Promise<Customer>
+  updateCustomer(id: string, params: Partial<Pick<Customer, 'name' | 'tel' | 'address' | 'email' | 'googleMapUrl' | 'notes'>>): Promise<void>
   deleteCustomer(id: string): Promise<{ ok: boolean; error?: string }>
   getCustomer(id: string): Customer | undefined
 
@@ -152,6 +152,7 @@ export const useStore = create<AppStore>()(
         address: params.address,
         email: params.email,
         google_map_url: params.googleMapUrl,
+        notes: params.notes,
       }).select().single())
       const customer = mapCustomer(row)
       set(s => ({ customers: [...s.customers, customer] }))
@@ -165,6 +166,7 @@ export const useStore = create<AppStore>()(
       if (params.address !== undefined) payload.address = params.address
       if (params.email !== undefined) payload.email = params.email
       if (params.googleMapUrl !== undefined) payload.google_map_url = params.googleMapUrl
+      if (params.notes !== undefined) payload.notes = params.notes
       const row = unwrap(await supabase.from('customers').update(payload).eq('id', id).select().single())
       const customer = mapCustomer(row)
       set(s => ({ customers: s.customers.map(c => (c.id === id ? customer : c)) }))

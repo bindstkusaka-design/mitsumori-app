@@ -19,6 +19,7 @@ export interface Customer {
   address: string
   email: string
   googleMapUrl: string
+  notes: string
   createdAt: string
   updatedAt: string
 }

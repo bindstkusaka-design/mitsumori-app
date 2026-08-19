@@ -10,6 +10,7 @@ export function mapCustomer(row: any): Customer {
     address: row.address ?? '',
     email: row.email ?? '',
     googleMapUrl: row.google_map_url ?? '',
+    notes: row.notes ?? '',
     createdAt: row.created_at,
     updatedAt: row.updated_at,
   }

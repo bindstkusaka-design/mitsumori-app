@@ -32,7 +32,7 @@ export default function CustomerPicker({ value, onChange }: CustomerPickerProps)
     if (!name.trim()) { showToast('顧客名を入力してください', 'error'); return }
     setSaving(true)
     try {
-      const customer = await createCustomer({ name: name.trim(), tel: '', address: '', email: '', googleMapUrl: '' })
+      const customer = await createCustomer({ name: name.trim(), tel: '', address: '', email: '', googleMapUrl: '', notes: '' })
       onChange(customer.id)
       setOpen(false)
       showToast('顧客を追加しました', 'success')

@@ -4,7 +4,7 @@ import React, { useState } from 'react'
 import { Plus, Pencil, Trash2 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import {
-  Button, Card, Modal, ConfirmModal, FormGroup, Input,
+  Button, Card, Modal, ConfirmModal, FormGroup, Input, Textarea,
   SectionHeader, EmptyState, ToastProvider, showToast,
 } from '@/components/ui'
 import TopNav from '@/components/layout/TopNav'
@@ -23,17 +23,18 @@ export default function CustomersClient() {
   const [address, setAddress] = useState('')
   const [email, setEmail] = useState('')
   const [googleMapUrl, setGoogleMapUrl] = useState('')
+  const [notes, setNotes] = useState('')
 
   const [deleteTarget, setDeleteTarget] = useState<Customer | null>(null)
   const [deleting, setDeleting] = useState(false)
 
   function openNew() {
-    setEditing(null); setName(''); setTel(''); setAddress(''); setEmail(''); setGoogleMapUrl('')
+    setEditing(null); setName(''); setTel(''); setAddress(''); setEmail(''); setGoogleMapUrl(''); setNotes('')
     setOpen(true)
   }
 
   function openEdit(c: Customer) {
-    setEditing(c); setName(c.name); setTel(c.tel); setAddress(c.address); setEmail(c.email); setGoogleMapUrl(c.googleMapUrl)
+    setEditing(c); setName(c.name); setTel(c.tel); setAddress(c.address); setEmail(c.email); setGoogleMapUrl(c.googleMapUrl); setNotes(c.notes)
     setOpen(true)
   }
 
@@ -41,7 +42,7 @@ export default function CustomersClient() {
     if (!name.trim()) { showToast('顧客名を入力してください', 'error'); return }
     setSaving(true)
     try {
-      const params = { name: name.trim(), tel: tel.trim(), address: address.trim(), email: email.trim(), googleMapUrl: googleMapUrl.trim() }
+      const params = { name: name.trim(), tel: tel.trim(), address: address.trim(), email: email.trim(), googleMapUrl: googleMapUrl.trim(), notes: notes.trim() }
       if (editing) {
         await updateCustomer(editing.id, params)
         showToast('更新しました', 'success')
@@ -110,6 +111,7 @@ export default function CustomersClient() {
                     {c.tel && <p className="text-xs text-ink-muted mt-0.5">📞 {c.tel}</p>}
                     {c.address && <p className="text-xs text-ink-muted mt-0.5">{c.address}</p>}
                     {c.email && <p className="text-xs text-ink-muted mt-0.5">{c.email}</p>}
+                    {c.notes && <p className="text-xs text-ink-muted mt-0.5">📝 {c.notes}</p>}
                   </div>
                   <div className="flex items-center gap-2 flex-shrink-0">
                     <button
@@ -147,6 +149,9 @@ export default function CustomersClient() {
         </FormGroup>
         <FormGroup label="Google マップ URL">
           <Input value={googleMapUrl} onChange={e => setGoogleMapUrl(e.target.value)} placeholder="任意" />
+        </FormGroup>
+        <FormGroup label="備考">
+          <Textarea value={notes} onChange={e => setNotes(e.target.value)} placeholder="予備の電話番号など" rows={2} />
         </FormGroup>
         <div className="flex gap-2.5 mt-2">
           <Button variant="ghost" size="lg" onClick={() => setOpen(false)} className="flex-1">キャンセル</Button>
