@@ -17,7 +17,8 @@ export default function CustomerPicker({ value, onChange }: CustomerPickerProps)
   const [name, setName] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const sorted = [...customers].sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+  const sortKey = (c: typeof customers[number]) => c.kana.trim() || c.name
+  const sorted = [...customers].sort((a, b) => sortKey(a).localeCompare(sortKey(b), 'ja'))
 
   function handleSelectChange(e: React.ChangeEvent<HTMLSelectElement>) {
     if (e.target.value === NEW_CUSTOMER_VALUE) {
@@ -32,7 +33,7 @@ export default function CustomerPicker({ value, onChange }: CustomerPickerProps)
     if (!name.trim()) { showToast('顧客名を入力してください', 'error'); return }
     setSaving(true)
     try {
-      const customer = await createCustomer({ name: name.trim(), tel: '', address: '', email: '', googleMapUrl: '', notes: '' })
+      const customer = await createCustomer({ name: name.trim(), kana: '', tel: '', address: '', email: '', googleMapUrl: '', notes: '' })
       onChange(customer.id)
       setOpen(false)
       showToast('顧客を追加しました', 'success')

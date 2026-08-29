@@ -6,6 +6,7 @@ export function mapCustomer(row: any): Customer {
   return {
     id: row.id,
     name: row.name,
+    kana: row.kana ?? '',
     tel: row.tel ?? '',
     address: row.address ?? '',
     email: row.email ?? '',

@@ -15,6 +15,7 @@ export type DealStatus = '商談中' | '受注済み' | '完了'
 export interface Customer {
   id: string
   name: string
+  kana: string
   tel: string
   address: string
   email: string

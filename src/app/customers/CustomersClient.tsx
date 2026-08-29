@@ -19,6 +19,7 @@ export default function CustomersClient() {
   const [saving, setSaving] = useState(false)
 
   const [name, setName] = useState('')
+  const [kana, setKana] = useState('')
   const [tel, setTel] = useState('')
   const [address, setAddress] = useState('')
   const [email, setEmail] = useState('')
@@ -29,12 +30,12 @@ export default function CustomersClient() {
   const [deleting, setDeleting] = useState(false)
 
   function openNew() {
-    setEditing(null); setName(''); setTel(''); setAddress(''); setEmail(''); setGoogleMapUrl(''); setNotes('')
+    setEditing(null); setName(''); setKana(''); setTel(''); setAddress(''); setEmail(''); setGoogleMapUrl(''); setNotes('')
     setOpen(true)
   }
 
   function openEdit(c: Customer) {
-    setEditing(c); setName(c.name); setTel(c.tel); setAddress(c.address); setEmail(c.email); setGoogleMapUrl(c.googleMapUrl); setNotes(c.notes)
+    setEditing(c); setName(c.name); setKana(c.kana); setTel(c.tel); setAddress(c.address); setEmail(c.email); setGoogleMapUrl(c.googleMapUrl); setNotes(c.notes)
     setOpen(true)
   }
 
@@ -42,7 +43,7 @@ export default function CustomersClient() {
     if (!name.trim()) { showToast('顧客名を入力してください', 'error'); return }
     setSaving(true)
     try {
-      const params = { name: name.trim(), tel: tel.trim(), address: address.trim(), email: email.trim(), googleMapUrl: googleMapUrl.trim(), notes: notes.trim() }
+      const params = { name: name.trim(), kana: kana.trim(), tel: tel.trim(), address: address.trim(), email: email.trim(), googleMapUrl: googleMapUrl.trim(), notes: notes.trim() }
       if (editing) {
         await updateCustomer(editing.id, params)
         showToast('更新しました', 'success')
@@ -74,7 +75,8 @@ export default function CustomersClient() {
     }
   }
 
-  const sorted = [...customers].sort((a, b) => a.name.localeCompare(b.name, 'ja'))
+  const sortKey = (c: Customer) => c.kana.trim() || c.name
+  const sorted = [...customers].sort((a, b) => sortKey(a).localeCompare(sortKey(b), 'ja'))
 
   return (
     <>
@@ -137,6 +139,9 @@ export default function CustomersClient() {
       <Modal open={open} onClose={() => setOpen(false)} title={editing ? '顧客を編集' : '顧客を追加'}>
         <FormGroup label="顧客名" required>
           <Input value={name} onChange={e => setName(e.target.value)} placeholder="例: 〇〇株式会社" />
+        </FormGroup>
+        <FormGroup label="ふりがな">
+          <Input value={kana} onChange={e => setKana(e.target.value)} placeholder="例: まるまるかぶしきがいしゃ" />
         </FormGroup>
         <FormGroup label="電話番号">
           <Input value={tel} onChange={e => setTel(e.target.value)} placeholder="03-xxxx-xxxx" />

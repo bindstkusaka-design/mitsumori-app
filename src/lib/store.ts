@@ -54,8 +54,8 @@ interface AppState {
 interface AppStore extends AppState {
   hydrate(): Promise<void>
 
-  createCustomer(params: Pick<Customer, 'name' | 'tel' | 'address' | 'email' | 'googleMapUrl' | 'notes'>): Promise<Customer>
-  updateCustomer(id: string, params: Partial<Pick<Customer, 'name' | 'tel' | 'address' | 'email' | 'googleMapUrl' | 'notes'>>): Promise<void>
+  createCustomer(params: Pick<Customer, 'name' | 'kana' | 'tel' | 'address' | 'email' | 'googleMapUrl' | 'notes'>): Promise<Customer>
+  updateCustomer(id: string, params: Partial<Pick<Customer, 'name' | 'kana' | 'tel' | 'address' | 'email' | 'googleMapUrl' | 'notes'>>): Promise<void>
   deleteCustomer(id: string): Promise<{ ok: boolean; error?: string }>
   getCustomer(id: string): Customer | undefined
 
@@ -148,6 +148,7 @@ export const useStore = create<AppStore>()(
     async createCustomer(params) {
       const row = unwrap(await supabase.from('customers').insert({
         name: params.name,
+        kana: params.kana,
         tel: params.tel,
         address: params.address,
         email: params.email,
@@ -162,6 +163,7 @@ export const useStore = create<AppStore>()(
     async updateCustomer(id, params) {
       const payload: Record<string, unknown> = {}
       if (params.name !== undefined) payload.name = params.name
+      if (params.kana !== undefined) payload.kana = params.kana
       if (params.tel !== undefined) payload.tel = params.tel
       if (params.address !== undefined) payload.address = params.address
       if (params.email !== undefined) payload.email = params.email
