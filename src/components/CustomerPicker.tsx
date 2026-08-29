@@ -47,10 +47,10 @@ export default function CustomerPicker({ value, onChange }: CustomerPickerProps)
     <>
       <Select value={value} onChange={handleSelectChange}>
         <option value="">選択してください</option>
+        <option value={NEW_CUSTOMER_VALUE}>＋ 新規顧客を追加</option>
         {sorted.map(c => (
           <option key={c.id} value={c.id}>{c.name}</option>
         ))}
-        <option value={NEW_CUSTOMER_VALUE}>＋ 新規顧客を追加</option>
       </Select>
 
       <Modal open={open} onClose={() => setOpen(false)} title="新規顧客を追加">
