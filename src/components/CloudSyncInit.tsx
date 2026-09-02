@@ -1,22 +1,31 @@
 'use client'
 
 import React, { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import { useStore } from '@/lib/store'
 
 /**
  * アプリ起動時に Supabase からデータを読み込み、ストアに反映する。
  * 読み込み中はローディング画面、失敗時はエラー表示＋再試行ボタンを出す。
+ *
+ * /reception 配下は顧客情報以外に触れさせない受付専用ページのため、
+ * ここで全テーブルを一括取得する hydrate() を意図的にスキップする。
  */
 export default function CloudSyncInit({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
+  const isReception = pathname?.startsWith('/reception') ?? false
   const hydrate = useStore(s => s.hydrate)
   const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
 
   useEffect(() => {
+    if (isReception) return
     setStatus('loading')
     hydrate()
       .then(() => setStatus('ready'))
       .catch(() => setStatus('error'))
-  }, [hydrate])
+  }, [hydrate, isReception])
+
+  if (isReception) return <>{children}</>
 
   if (status === 'error') {
     return (
