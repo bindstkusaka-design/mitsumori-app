@@ -51,6 +51,27 @@ npm run dev
 - UI は `pdfPath` の存在のみを見る
 - 実ファイルの取得・アップロード方法はサービス側に隠蔽
 
+## 受付フォーム（/reception）
+
+電話受付スタッフが顧客情報（氏名・ふりがな・電話番号・住所・メール・GoogleマップURL・備考）
+だけを登録・編集できる専用ページです。共通パスワード1つでCookie認証し（`middleware.ts`）、
+`src/lib/store.ts`（jobs/documents等も扱う本体のストア）は一切importせず、
+`src/lib/reception-customers.ts` 経由で `customers` テーブルにしか触れません。
+ナビゲーションにリンクは出していないため、URLを知っている人だけがアクセスできます。
+
+登録・更新のたびに、設定されていればGoogleスプレッドシートへの反映（`src/lib/google-sheets.ts`）と
+管理者へのメール通知（`src/lib/reception-notify.ts`、Resend）を行います。どちらも未設定の場合は
+警告を返すだけでスキップされ、顧客情報自体の保存は失敗しません。
+
+必要な環境変数（`.env.local.example` 参照）:
+
+| 変数 | 必須 | 用途 |
+|---|---|---|
+| `RECEPTION_PASSWORD` | 必須 | `/reception` の認証パスワード。未設定時は配下を全拒否 |
+| `GOOGLE_SERVICE_ACCOUNT_EMAIL` / `GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY` | 任意 | Googleスプレッドシート連携用サービスアカウント |
+| `GOOGLE_SHEET_ID` / `GOOGLE_SHEET_NAME` | 任意 | 反映先スプレッドシートとシート名 |
+| `RESEND_API_KEY` / `NOTIFY_EMAIL_TO` / `NOTIFY_EMAIL_FROM` | 任意 | 登録完了メール通知（Resend） |
+
 ## 既存データのインポート
 
 `data/sync.json`（移行前のローカルバックアップ）から Supabase へ一括インポートするスクリプトが `scripts/import-to-supabase.mjs` にあります。空の Supabase プロジェクトに対して一度だけ実行する想定です。
